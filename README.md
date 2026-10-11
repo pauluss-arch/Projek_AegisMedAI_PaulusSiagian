@@ -56,17 +56,30 @@
 ## 📁 4. Struktur Folder Proyek
 
 ```text
-aegismed-ai/
-├── src/
-│   ├── App.tsx          # Aplikasi utama & integrasi 3 Halaman/Tab
-│   ├── main.tsx         # Entry point aplikasi
-│   └── index.css        # Tailwind CSS imports & global styles
-├── public/              # Aset statis
-├── index.html           # Berkas HTML utama
-├── README.md            # Dokumentasi utama proyek
-├── package.json         # Dependensi dan skrip proyek
-└── vite.config.ts       # Konfigurasi Vite
-
+medic/
+├── dist/                        # Hasil build produksi aplikasi
+│   ├── assets/                  # Aset terkompilasi (JS, CSS)
+│   └── index.html               # Entry point HTML build
+├── docs/                        # Dokumentasi pendukung & bukti audit
+│   ├── 128px.png
+│   ├── 360px.png
+│   ├── 768px.png
+│   ├── AI_LOG.md                # Catatan penggunaan AI & kepatuhan akademik
+│   └── ligthouse.png            # Bukti pengujian aksesibilitas Lighthouse
+├── node_modules/                # Package/dependensi proyek
+├── security/                    # Artefak Keamanan Komputasi dan Siber
+│   └── THREAT_MODEL.md          # Threat Modeling STRIDE, DFD, & Risk Assessment (sec-0.1)
+├── src/                         # Source code utama aplikasi
+│   ├── components/              # Komponen UI Reusable
+│   ├── crypto/                  # Modul & Unit Testing Kriptografi
+│   │   ├── patientCrypto.ts     # Implementasi SHA-256, AES-256-GCM, & CSPRNG
+│   │   └── patientCrypto.test.ts# Skenario Uji Otomatis (Unit Test + Negative Test)
+│   ├── mock/                    # Data sintetis / mock data pasien & medis
+│   ├── pages/                   # Halaman/Tab tampilan utama
+│   └── types/                   # Definisi tipe TypeScript
+├── public/                      # Aset statis publik
+├── package.json                 # Dependensi & skrip proyek
+└── vite.config.ts               # Konfigurasi Vite
 ```
 ## 🔐 Modul Kriptografi produk (Tugas Kriptografi)
 
