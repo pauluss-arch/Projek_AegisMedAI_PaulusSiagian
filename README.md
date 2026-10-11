@@ -67,7 +67,7 @@ aegismed-ai/
 ├── package.json         # Dependensi dan skrip proyek
 └── vite.config.ts       # Konfigurasi Vite
 
-
+```
 ## 🔐 Modul Kriptografi produk (Tugas Kriptografi)
 
 ### 📋 1. Tabel Kebutuhan Kriptografi
@@ -81,7 +81,7 @@ aegismed-ai/
 
 ### 📐 2. Rancangan Komponen Kriptografi
 1. **Anonimisasi Identitas Pasien (SHA-256):**
-   - **Masukan:** String Nama Asli Pasien (misal: `"Siti Rahma"`).
+   - **Masukan:** String Nama Asli Pasien (misal: `"paulus siagian"`).
    - **Proses:** Hashing menggunakan SHA-256 dengan format output Heksa desimal.
    - **Keluaran:** Hash anonim sepanjang 64 karakter heksadesimal (`"PAT-SHA256-..."`).
    - **Representasi Data:** Hex String.
@@ -109,3 +109,7 @@ Jalankan perintah berikut di terminal Anda:
 npm run test:crypto
 # atau menggunakan node/ts-node langsung:
 npx tsx src/crypto/patientCrypto.test.ts
+```
+
+
+
