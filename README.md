@@ -118,6 +118,49 @@ medic/
 ├── package.json                 # Dependensi & skrip proyek
 └── vite.config.ts               # Konfigurasi Vite
 ```
+
+# 💻 6. Petunjuk Menjalankan Proyek & Pengujian
+
+## A. Menjalankan Aplikasi Web
+
+1. **Masuk ke folder proyek:**
+
+   ```bash
+   cd medic
+   ```
+
+2. **Install dependensi:**
+
+   ```bash
+   npm install
+   ```
+
+3. **Jalankan development server:**
+
+   ```bash
+   npm run dev
+   ```
+
+4. **Akses di Browser:** Buka `http://localhost:5173`.
+
+## B. Menjalankan Uji Otomatis Kriptografi (Unit Test)
+
+Jalankan perintah berikut untuk mengeksekusi skenario uji otomatis:
+
+```bash
+npx tsx src/crypto/patientCrypto.test.ts
+```
+
+---
+
+# 🧪 7. Laporan Pengujian Aksesibilitas (Lighthouse A11y Audit)
+
+- **Halaman yang Diuji:** `http://localhost:5173/` (Dashboard Utama AegisMed AI)
+- **Mode Pengujian:** Navigation (Default)
+- **Perangkat Diemulasikan:** Desktop & Mobile (375px, 768px, 1440px)
+- **Versi Browser:** Google Chrome v124+
+- **Skor Lighthouse Accessibility:** **94 / 100** (Memenuhi kriteria min. 85)
+
 ## 🔐 Modul Kriptografi produk (Tugas Kriptografi)
 
 ### 📋 1. Tabel Kebutuhan Kriptografi
