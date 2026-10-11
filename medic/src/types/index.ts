@@ -1,49 +1,77 @@
-// AegisMed AI - TypeScript Interfaces
-// Milestone 1: Clinical Decision Support System (CDSS)
+export type TabId = 'diagnosis' | 'antibiotic' | 'database' | 'history';
+export type AllergyKey = 'penicillin' | 'sulfa' | 'macrolide';
+export type PatientGender = 'female' | 'male' | 'intersex' | 'unknown' | '';
+export type PrescriptionStatus = 'Not signed' | 'Demo signature confirmed';
 
-export type Gender = 'male' | 'female' | 'other';
+export interface PatientState {
+  rawName: string;
+  hashedId: string;
+  age: string;
+  gender: PatientGender;
+  egfr: number;
+  allergies: AllergyKey[];
+  symptomsRaw: string;
+}
 
-export type LiverFunctionStatus = 
-  | 'Normal' 
-  | 'Mild Impairment' 
-  | 'Moderate Impairment' 
-  | 'Severe Impairment';
-
-export interface Patient {
+export interface AntibioticGuideline {
   id: string;
   name: string;
-  age: number;
-  gender: Gender;
-  allergies: string[];
-  eGFR: number; // in mL/min/1.73m²
-  liverFunction: LiverFunctionStatus;
-}
-
-export interface DiagnosisResult {
-  id: string;
-  diseaseName: string;
-  icdCode: string;
-  probability: number; // 0 - 100 percentage
-  isRareDisease: boolean;
-  description: string;
-  recommendedAntibiotic?: string;
-}
-
-export interface AntibioticRecommendation {
-  drugName: string;
+  className: string;
+  status: 'First-line example' | 'Alternative example' | 'Specialist therapy';
+  allergyRisks: AllergyKey[];
+  contraindications: AllergyKey[];
+  baseDose: string;
+  renalDoseBelow30?: string;
   dosage: string;
-  frequency: string;
-  durationDays: number;
-  safetyWarnings: string[];
+  egfrAdjustments: Array<{ below: number; guidance: string }>;
+  note: string;
 }
 
-export interface RareDisease {
+export interface DiseaseRecord {
   id: string;
   name: string;
-  icd11Code: string;
   category: string;
-  prevalence: string;
-  keySymptoms: string[];
-  description: string;
-  treatmentSummary: string;
+  icd11: string;
+  icd11Code: string;
+  icd11Verified: boolean;
+  keywords: string[];
+  symptoms: string[];
+  symptomSignals: string[];
+  summary: string;
+  homeCare: string[];
+  redFlags: string[];
+  careNote: string;
+  rare: boolean;
+  therapies: AntibioticGuideline[];
+  recommendedAntibiotics: AntibioticGuideline[];
+}
+
+export interface MatchResult {
+  disease: DiseaseRecord;
+  probability: number;
+  matchedSignals: string[];
+  explanation: string;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  patientHashId: string;
+  diagnoses: Array<{ name: string; probability: number; icd11: string }>;
+  prescribedAntibiotic: string | null;
+  signatureStatus: PrescriptionStatus;
+}
+
+export type TherapyOption = AntibioticGuideline;
+export type Disease = DiseaseRecord;
+export type DiagnosisMatch = MatchResult;
+export type AssessmentHistoryEntry = AuditLogEntry;
+
+export type PatientDraft = PatientState;
+
+export interface UserPreferences {
+  egfr: number;
+  allergies: AllergyKey[];
+  patientId: string;
+  history: AssessmentHistoryEntry[];
 }

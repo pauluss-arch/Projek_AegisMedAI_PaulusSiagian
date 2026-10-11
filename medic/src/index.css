@@ -3,6 +3,30 @@
 @tailwind utilities;
 
 @layer base {
+  * {
+    scrollbar-color: #1e293b #0b0f19;
+    scrollbar-width: thin;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: #0b0f19;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border: 2px solid #0b0f19;
+    border-radius: 9999px;
+    background: #1e293b;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: #334155;
+  }
+
   html {
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
@@ -10,7 +34,7 @@
   }
 
   body {
-    @apply bg-slate-950 text-slate-100;
+    @apply bg-[#0b0f19] text-slate-100;
     min-width: 320px;
     min-height: 100vh;
   }

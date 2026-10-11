@@ -30,6 +30,22 @@ function normalizePatientName(patientName: string): string {
   return patientName.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
+export async function createPatientPseudonym(patientName: string): Promise<string> {
+  const normalizedName = normalizePatientName(patientName).normalize('NFKC');
+  if (!normalizedName) throw new Error('A patient name is required to create a pseudonym.');
+
+  const cryptoObj = getWebCrypto();
+  const salt = cryptoObj.getRandomValues(new Uint8Array(16));
+  const nameBytes = new TextEncoder().encode(normalizedName);
+  const payload = new Uint8Array(salt.length + nameBytes.length);
+  payload.set(salt);
+  payload.set(nameBytes, salt.length);
+
+  const digest = await cryptoObj.subtle.digest('SHA-256', toBufferSource(payload));
+  const token = bytesToHex(new Uint8Array(digest)).slice(0, 8).toUpperCase();
+  return `PAT-${token}-${new Date().getFullYear()}`;
+}
+
 function hexToBytes(value: string): Uint8Array {
   const bytes = new Uint8Array(value.length / 2);
 
@@ -88,6 +104,11 @@ export async function decryptMedicalRecord(
 ): Promise<string> {
   if (!encryptedData || typeof encryptedData.ciphertext !== 'string' || typeof encryptedData.iv !== 'string' || typeof encryptedData.authTag !== 'string') {
     throw new Error('Invalid encryptedData payload.');
+  }
+  if (!/^(?:[0-9a-fA-F]{2})*$/.test(encryptedData.ciphertext) ||
+      !/^[0-9a-fA-F]{24}$/.test(encryptedData.iv) ||
+      !/^[0-9a-fA-F]{32}$/.test(encryptedData.authTag)) {
+    throw new Error('Encrypted record contains malformed hexadecimal data.');
   }
 
   const cryptoObj = getWebCrypto();

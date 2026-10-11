@@ -1,7 +1,7 @@
 import React from 'react';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger';
+  variant?: 'primary' | 'secondary' | 'danger' | 'quiet' | 'glowing';
   isLoading?: boolean;
   loadingText?: string;
   children: React.ReactNode;
@@ -17,12 +17,14 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const baseStyle =
-    'inline-flex items-center justify-center min-h-[42px] px-4 py-2 rounded-lg font-medium text-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed select-none active:scale-[0.99]';
+    'inline-flex items-center justify-center min-h-[42px] px-4 py-2 rounded-xl font-semibold text-sm transition-all focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed select-none active:scale-[0.99]';
 
   const variants = {
-    primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 shadow-sm',
-    secondary: 'bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300 focus:ring-slate-400',
-    danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-sm',
+    primary: 'bg-cyan-500 text-slate-950 hover:bg-cyan-400 focus:ring-cyan-300',
+    secondary: 'bg-slate-900 text-slate-200 hover:bg-slate-800 border border-slate-700 focus:ring-cyan-400',
+    danger: 'bg-rose-500/10 text-rose-200 hover:bg-rose-500/20 border border-rose-400/30 focus:ring-rose-400',
+    quiet: 'text-slate-300 hover:bg-slate-800 focus:ring-cyan-400',
+    glowing: 'bg-cyan-400 text-[#06101c] shadow-[0_0_24px_rgba(6,182,212,0.25)] hover:bg-cyan-300 focus:ring-cyan-300',
   };
 
   const isDisabled = disabled || isLoading;

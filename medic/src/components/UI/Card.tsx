@@ -16,17 +16,17 @@ export const Card: React.FC<CardProps> = ({
   className = '',
 }) => {
   return (
-    <div className={`bg-white rounded-xl border border-slate-200 shadow-sm p-5 ${className}`}>
+    <section className={`rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-xl shadow-black/10 ${className}`}>
       {(title || subtitle || badge) && (
-        <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-100 pb-3">
+        <div className="mb-4 flex flex-col gap-2 border-b border-slate-800 pb-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            {title && <h3 className="text-lg font-semibold text-slate-900">{title}</h3>}
-            {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
+            {title && <h3 className="text-lg font-semibold text-white">{title}</h3>}
+            {subtitle && <p className="mt-0.5 text-sm text-slate-400">{subtitle}</p>}
           </div>
           {badge && <div className="shrink-0">{badge}</div>}
         </div>
       )}
       {children}
-    </div>
+    </section>
   );
 };

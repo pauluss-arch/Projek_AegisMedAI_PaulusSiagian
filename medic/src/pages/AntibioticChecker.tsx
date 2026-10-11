@@ -1,253 +1,58 @@
-import React, { useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
+import { AlertTriangle, CheckCircle2, Pill } from 'lucide-react';
+import type { AllergyKey, Disease, PatientState } from '../types';
 import { Card } from '../components/UI/Card';
-import { Button } from '../components/UI/Button';
 import { Badge } from '../components/UI/Badge';
-import { Modal } from '../components/UI/Modal';
 
-export const AntibioticChecker: React.FC = () => {
-  const [selectedIndication, setSelectedIndication] = useState<string>('Pneumonia');
-  const [egfr, setEgfr] = useState<number>(45);
-  const [hasPenicillinAllergy, setHasPenicillinAllergy] = useState<boolean>(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isPrescriptionSigned, setIsPrescriptionSigned] = useState(false);
+type Props = {
+  disease?: Disease;
+  patient: PatientState;
+  onPatientChange: Dispatch<SetStateAction<PatientState>>;
+};
 
-  // Regimen calculation based on indication and patient parameters
-  const getRegimen = () => {
-    if (selectedIndication === 'Pneumonia') {
-      if (hasPenicillinAllergy) {
-        return {
-          drug: 'Levofloxacin / Azithromycin',
-          standardDose: '500mg IV/Oral Q24H',
-          adjustedDose: egfr < 30 ? '250mg Oral Q48H (50% renal dose reduction)' : '500mg Oral Q24H',
-          duration: '5 Days',
-          isBetaLactam: false,
-          warning: 'Monitor QT interval. Safe for documented Penicillin allergy.',
-        };
-      }
-      return {
-        drug: 'Amoxicillin / Clavulanate (Augmentin)',
-        standardDose: '875/125mg Oral Q12H',
-        adjustedDose: egfr < 30 ? '500/125mg Oral Q12H' : '875/125mg Oral Q12H',
-        duration: '7 Days',
-        isBetaLactam: true,
-        warning: 'Beta-lactam agent. Requires caution if allergy history is present.',
-      };
-    } else if (selectedIndication === 'Pyelonephritis') {
-      return {
-        drug: 'Ciprofloxacin',
-        standardDose: '500mg Oral Q12H',
-        adjustedDose: egfr < 30 ? '250mg Oral Q12H or 500mg Q24H' : '500mg Oral Q12H',
-        duration: '7 Days',
-        isBetaLactam: false,
-        warning: 'Renally cleared fluoroquinolone. Hydrate adequately to prevent crystalluria.',
-      };
-    } else {
-      // Sepsis / Severe infection
-      if (hasPenicillinAllergy) {
-        return {
-          drug: 'Aztreonam + Vancomycin',
-          standardDose: 'Aztreonam 2g IV Q8H + Vancomycin 15mg/kg',
-          adjustedDose: egfr < 30 ? 'Aztreonam 1g IV Q8H + Vancomycin trough-guided' : 'Aztreonam 2g IV Q8H',
-          duration: '10 Days',
-          isBetaLactam: false,
-          warning: 'Monobactam regimen safe in severe IgE-mediated penicillin anaphylaxis.',
-        };
-      }
-      return {
-        drug: 'Piperacillin / Tazobactam',
-        standardDose: '4.5g IV Q6H',
-        adjustedDose: egfr < 30 ? '2.25g to 3.375g IV Q8H' : '4.5g IV Q6H',
-        duration: '7-10 Days',
-        isBetaLactam: true,
-        warning: 'Antipseudomonal penicillin. Strictly contraindicated in penicillin allergy.',
-      };
-    }
-  };
+const allergyOptions: Array<{ key: AllergyKey; label: string }> = [
+  { key: 'penicillin', label: 'Penicillin / beta-lactam' },
+  { key: 'sulfa', label: 'Sulfonamide' },
+  { key: 'macrolide', label: 'Macrolide' },
+];
 
-  const regimen = getRegimen();
-  const hasAllergyConflict = hasPenicillinAllergy && regimen.isBetaLactam;
-
+export function AntibioticChecker({ disease, patient, onPatientChange }: Props) {
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {isPrescriptionSigned && (
-        <div
-          role="alert"
-          className="p-4 bg-emerald-50 border border-emerald-300 rounded-xl text-emerald-900 text-sm flex justify-between items-center"
-        >
-          <span>
-            <strong>Order Signed:</strong> Prescription for {regimen.drug} has been electronically transmitted to the pharmacy.
-          </span>
-          <button
-            onClick={() => setIsPrescriptionSigned(false)}
-            className="text-xs text-emerald-800 underline font-semibold ml-4"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      <Card
-        title="Smart Antibiotic Stewardship Verification"
-        subtitle="Automated organ function checks (eGFR) and allergy cross-reactivity screening"
-      >
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          {/* Clinical Indication */}
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="indication-select" className="text-sm font-medium text-slate-700">
-              Infection Indication
+    <section className="mx-auto max-w-4xl space-y-5">
+      <Card title="Antibiotic safety review" subtitle={disease ? `${disease.name} · individualized context` : 'Set patient factors or select a differential diagnosis to review therapy notes.'}>
+        <div className="grid gap-6 md:grid-cols-2">
+          <div>
+            <label htmlFor="checker-egfr" className="mb-2 flex justify-between text-xs font-semibold text-slate-300">
+              <span>Renal function (eGFR)</span><span className="font-mono text-cyan-200">{patient.egfr} mL/min/1.73m²</span>
             </label>
-            <select
-              id="indication-select"
-              value={selectedIndication}
-              onChange={(e) => setSelectedIndication(e.target.value)}
-              className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="Pneumonia">Community-Acquired Pneumonia</option>
-              <option value="Pyelonephritis">Complicated Pyelonephritis</option>
-              <option value="Sepsis">Severe Hospital Sepsis</option>
-            </select>
+            <input id="checker-egfr" type="range" min="5" max="120" value={patient.egfr} onChange={(event) => onPatientChange((current) => ({ ...current, egfr: Number(event.target.value) }))} className="w-full accent-cyan-400" aria-valuetext={`${patient.egfr} mL/min per 1.73 square meters`} />
+            <p className="mt-1 text-[10px] text-slate-500">A low eGFR is not converted to a fixed percentage dose reduction. Adjustments depend on the specific drug and protocol.</p>
           </div>
-
-          {/* eGFR Renal Slider */}
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="egfr-slider" className="text-sm font-medium text-slate-700">
-              Renal Clearance (eGFR: {egfr} mL/min)
-            </label>
-            <input
-              id="egfr-slider"
-              type="range"
-              min="10"
-              max="120"
-              value={egfr}
-              onChange={(e) => setEgfr(Number(e.target.value))}
-              className="w-full accent-blue-600 cursor-pointer mt-1"
-            />
-            <span className="text-xs text-slate-500">
-              {egfr < 30
-                ? 'Severe CKD (Dose adjustment required)'
-                : egfr < 60
-                ? 'Moderate impairment'
-                : 'Preserved renal function'}
-            </span>
-          </div>
-
-          {/* Patient Allergies */}
-          <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium text-slate-700">Patient Allergies</span>
-            <label className="inline-flex items-center gap-2 text-sm text-slate-800 cursor-pointer pt-1">
-              <input
-                type="checkbox"
-                checked={hasPenicillinAllergy}
-                onChange={(e) => setHasPenicillinAllergy(e.target.checked)}
-                className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500"
-              />
-              Documented Penicillin Allergy
-            </label>
-          </div>
-        </div>
-
-        {/* Allergy Conflict Alert */}
-        {hasAllergyConflict && (
-          <div
-            role="alert"
-            className="p-4 mb-6 bg-red-50 border border-red-300 rounded-xl text-red-900 text-sm space-y-1"
-          >
-            <p className="font-bold flex items-center gap-1.5 text-red-700">
-              ⚠️ Critical Allergy Conflict Detected
-            </p>
-            <p className="text-xs text-red-800">
-              {regimen.drug} belongs to the Beta-lactam class. Administration may trigger severe anaphylaxis. An alternative non-beta-lactam regimen is required.
-            </p>
-          </div>
-        )}
-
-        {/* Evaluated Antibiotic Regimen */}
-        <div className="border-t border-slate-200 pt-6 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <h4 className="font-semibold text-slate-900 text-base">
-              Recommended Regimen: {regimen.drug}
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              {hasPenicillinAllergy && !regimen.isBetaLactam && (
-                <Badge variant="success">Allergy Safe: Non-Beta-Lactam</Badge>
-              )}
-              {hasAllergyConflict && <Badge variant="danger">Allergy Contraindication</Badge>}
-              {egfr < 30 ? (
-                <Badge variant="danger">Renal Dose Reduction Applied</Badge>
-              ) : (
-                <Badge variant="info">Standard Renal Clearance</Badge>
-              )}
-            </div>
-          </div>
-
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-sm space-y-2">
-            <p>
-              <strong>Tailored Dosage:</strong> {regimen.adjustedDose}
-            </p>
-            <p>
-              <strong>Course Duration:</strong> {regimen.duration}
-            </p>
-            <p className="text-xs text-slate-600">
-              <strong>Clinical Guidance:</strong> {regimen.warning}
-            </p>
-          </div>
-
-          <div className="pt-2">
-            <Button
-              variant={hasAllergyConflict ? 'danger' : 'primary'}
-              onClick={() => setIsModalOpen(true)}
-            >
-              Verify & Sign Prescription
-            </Button>
-          </div>
+          <fieldset className="space-y-2">
+            <legend className="mb-2 text-xs font-semibold text-slate-300">Reported allergy classes</legend>
+            {allergyOptions.map(({ key, label }) => <label key={key} className="flex items-center gap-2 text-xs text-slate-400"><input type="checkbox" checked={patient.allergies.includes(key)} onChange={() => onPatientChange((current) => ({ ...current, allergies: current.allergies.includes(key) ? current.allergies.filter((item) => item !== key) : [...current.allergies, key] }))} className="accent-cyan-400" />{label}</label>)}
+          </fieldset>
         </div>
       </Card>
-
-      {/* Confirmation Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Electronic Prescription Order Verification"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-slate-700">
-            Confirm and electronically authorize the antibiotic regimen for <strong>{regimen.drug}</strong>:
-          </p>
-          <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 space-y-1.5">
-            <p>
-              <strong>Calculated Dose:</strong> {regimen.adjustedDose}
-            </p>
-            <p>
-              <strong>Patient eGFR:</strong> {egfr} mL/min/1.73m²
-            </p>
-            <p>
-              <strong>Penicillin Allergy Status:</strong>{' '}
-              {hasPenicillinAllergy ? 'Positive (Documented)' : 'None reported'}
-            </p>
-          </div>
-
-          {hasAllergyConflict && (
-            <div className="p-3 bg-red-50 border border-red-300 rounded-lg text-xs text-red-900">
-              <strong>Physician Override Warning:</strong> Documented penicillin allergy alert is active. Confirm clinical desensitization or alternative clearance before proceeding.
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-            <Button variant="secondary" onClick={() => setIsModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant={hasAllergyConflict ? 'danger' : 'primary'}
-              onClick={() => {
-                setIsModalOpen(false);
-                setIsPrescriptionSigned(true);
-              }}
-            >
-              Confirm Electronic Signature
-            </Button>
-          </div>
-        </div>
-      </Modal>
-    </div>
+      <Card title={disease ? 'Therapy & contraindication review' : 'No diagnosis selected'} subtitle={disease ? 'Illustrative reference notes only · no prescription or dose is generated' : 'Choose a result from Patient diagnosis'}>
+        <div className="mb-5 rounded-xl border border-amber-400/20 bg-amber-400/[0.05] p-4 text-xs leading-5 text-amber-100/80"><AlertTriangle className="mr-2 inline h-4 w-4 text-amber-300" />Not a prescribing tool. Verify indication, allergy phenotype, renal function, culture data, interactions, and the current local protocol with a qualified clinician or pharmacist.</div>
+        {!disease ? <p className="text-sm text-slate-400">Run an assessment and select a diagnosis card to view its mock therapy notes.</p> :
+          disease.recommendedAntibiotics.length === 0 ? <p className="text-sm text-slate-400">No antimicrobial therapy is listed. Antibiotics are not routinely appropriate for some conditions; follow clinician-directed care.</p> :
+            <div className="space-y-3">{disease.recommendedAntibiotics.map((therapy) => {
+              const conflicts = therapy.contraindications.filter((allergy) => patient.allergies.includes(allergy));
+              const renalNote = therapy.egfrAdjustments.find((adjustment) => patient.egfr < adjustment.below);
+              return <article key={therapy.id} className={`rounded-xl border p-4 ${conflicts.length ? 'border-rose-400/30 bg-rose-400/[0.04]' : 'border-slate-800 bg-[#0b0f19]'}`}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex items-start gap-3"><Pill className={`mt-1 h-4 w-4 ${conflicts.length ? 'text-rose-300' : 'text-cyan-300'}`} /><div><h3 className="text-sm font-semibold text-white">{therapy.name}</h3><p className="mt-1 text-[10px] text-slate-500">{therapy.className}</p></div></div>
+                  <Badge variant={conflicts.length ? 'danger' : therapy.status === 'Specialist therapy' ? 'purple' : 'info'}>{conflicts.length ? 'Potential allergy conflict' : therapy.status}</Badge>
+                </div>
+                <p className="mt-3 text-xs leading-5 text-slate-400">{therapy.note}</p>
+                <p className="mt-2 text-[10px] text-slate-500">Dose guidance: {therapy.dosage} {therapy.baseDose}</p>
+                {renalNote && <p className="mt-2 text-[10px] leading-5 text-amber-200">Renal review required (eGFR below {renalNote.below}): {renalNote.guidance}</p>}
+                {conflicts.length ? <p role="alert" className="mt-2 text-xs text-rose-200">Reported allergy class conflict: {conflicts.join(', ')}. This flag is not a complete allergy or cross-reactivity assessment.</p> : <p className="mt-2 flex items-center gap-1 text-[10px] text-emerald-300"><CheckCircle2 size={12} /> No selected allergy-class conflict detected (not a safety clearance).</p>}
+              </article>;
+            })}</div>}
+      </Card>
+    </section>
   );
-};
+}

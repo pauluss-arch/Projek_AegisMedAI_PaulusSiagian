@@ -1,280 +1,75 @@
-import React, { useState } from 'react';
-import { Card } from '../components/UI/Card';
+import { Activity, AlertTriangle, FileText, Search, ShieldCheck, Sparkles } from 'lucide-react';
+import type { Dispatch, SetStateAction } from 'react';
+import type { DiagnosisMatch, PatientState } from '../types';
 import { Button } from '../components/UI/Button';
-import { Input } from '../components/UI/Input';
+import { Card } from '../components/UI/Card';
 import { Badge } from '../components/UI/Badge';
-import { Modal } from '../components/UI/Modal';
-import { mockDiagnoses } from '../mock/data';
-import { DiagnosisResult } from '../types';
+import { Input } from '../components/UI/Input';
+import { Textarea } from '../components/UI/Textarea';
 
-export const PatientDiagnosis: React.FC = () => {
-  const [patientName, setPatientName] = useState('Siti Rahma');
-  const [age, setAge] = useState('45');
-  const [symptoms, setSymptoms] = useState(
-    'High fever (38.8 C), productive cough with purulent sputum, and right-sided pleuritic chest pain on deep inspiration.'
-  );
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [results, setResults] = useState<DiagnosisResult[] | null>(mockDiagnoses);
-  const [selectedDiagnosis, setSelectedDiagnosis] = useState<DiagnosisResult | null>(null);
+type Props = {
+  patient: PatientState;
+  setPatient: Dispatch<SetStateAction<PatientState>>;
+  matches: DiagnosisMatch[];
+  onEvaluate: () => void;
+  onSelect: (match: DiagnosisMatch) => void;
+  onPreset: (key: string) => void;
+  hasEvaluated: boolean;
+};
 
-  const handleValidation = (): boolean => {
-    const newErrors: { [key: string]: string } = {};
-    if (!patientName.trim()) {
-      newErrors.patientName = 'Patient name is required.';
-    }
-    if (!age || Number(age) <= 0 || isNaN(Number(age))) {
-      newErrors.age = 'Please enter a valid positive age.';
-    }
-    if (!symptoms.trim() || symptoms.trim().length < 10) {
-      newErrors.symptoms = `Please enter at least 10 characters describing clinical symptoms (currently ${symptoms.trim().length} chars).`;
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (handleValidation()) {
-      setResults(mockDiagnoses);
-    }
-  };
-
-  const handleLoadSample = (sample: 'pneumonia' | 'melioidosis' | 'pyelo') => {
-    if (sample === 'pneumonia') {
-      setPatientName('Siti Rahma');
-      setAge('45');
-      setSymptoms('High fever (38.8 C), productive cough with purulent sputum, and pleuritic chest pain.');
-    } else if (sample === 'melioidosis') {
-      setPatientName('Ahmad Putra');
-      setAge('52');
-      setSymptoms('Prolonged persistent fever, night sweats, localized subcutaneous abscesses, and productive cough.');
-    } else {
-      setPatientName('Budi Santoso');
-      setAge('58');
-      setSymptoms('Severe costovertebral flank pain, shaking chills, fever (39.2 C), and painful dysuria.');
-    }
-    setErrors({});
-  };
-
+export function PatientDiagnosis(props: Props) {
+  const { patient, setPatient, matches, onEvaluate, onSelect, onPreset, hasEvaluated } = props;
+  const allergyLabels = [['penicillin', 'Penicillin / beta-lactam'], ['sulfa', 'Sulfonamide'], ['macrolide', 'Macrolide']] as const;
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-      {/* Patient Intake Form */}
-      <section className="lg:col-span-5 space-y-4">
-        <Card
-          title="Patient Symptom Analyzer"
-          subtitle="Input patient parameters for AI-assisted differential diagnosis"
-        >
-          {/* Quick Presets */}
-          <div className="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
-            <span className="text-xs font-semibold text-slate-700 block mb-2">
-              Load Sample Clinical Presentation:
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => handleLoadSample('pneumonia')}
-                className="text-xs px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-300 rounded font-medium text-slate-700"
-              >
-                Pneumonia Case
-              </button>
-              <button
-                type="button"
-                onClick={() => handleLoadSample('melioidosis')}
-                className="text-xs px-2.5 py-1 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded font-medium text-purple-900"
-              >
-                Rare: Melioidosis
-              </button>
-              <button
-                type="button"
-                onClick={() => handleLoadSample('pyelo')}
-                className="text-xs px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-300 rounded font-medium text-slate-700"
-              >
-                Pyelonephritis
-              </button>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} noValidate>
-            <Input
-              id="patientName"
-              label="Patient Name"
-              required
-              placeholder="e.g. Siti Rahma"
-              value={patientName}
-              onChange={(e) => setPatientName(e.target.value)}
-              error={errors.patientName}
-            />
-
-            <Input
-              id="age"
-              label="Age (Years)"
-              type="number"
-              required
-              min={1}
-              max={130}
-              placeholder="e.g. 45"
-              value={age}
-              onChange={(e) => setAge(e.target.value)}
-              error={errors.age}
-            />
-
-            <div className="flex flex-col gap-1.5 mb-4">
-              <div className="flex justify-between items-center">
-                <label htmlFor="symptoms" className="text-sm font-medium text-slate-800">
-                  Clinical Symptoms & History <span className="text-red-500">*</span>
-                </label>
-                <span className="text-xs text-slate-500">
-                  {symptoms.trim().length} chars (min 10)
-                </span>
-              </div>
-              <textarea
-                id="symptoms"
-                rows={4}
-                required
-                aria-invalid={!!errors.symptoms}
-                aria-describedby={errors.symptoms ? 'symptoms-error' : undefined}
-                className={`min-h-[100px] px-3.5 py-2.5 border rounded-lg text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
-                  errors.symptoms
-                    ? 'border-red-500 bg-red-50/20 focus:border-red-500 focus:ring-red-500'
-                    : 'border-slate-300 hover:border-slate-400 bg-white'
-                }`}
-                placeholder="High fever (38.8 C), productive cough with purulent sputum, chest pain on deep inspiration..."
-                value={symptoms}
-                onChange={(e) => setSymptoms(e.target.value)}
-              />
-              {errors.symptoms && (
-                <span id="symptoms-error" role="alert" className="text-xs font-medium text-red-600 mt-0.5">
-                  {errors.symptoms}
-                </span>
-              )}
-            </div>
-
-            <Button type="submit" className="w-full">
-              Run AI Diagnostic Analysis
-            </Button>
-          </form>
-        </Card>
-      </section>
-
-      {/* Differential Results */}
-      <section className="lg:col-span-7">
-        <Card
-          title="Differential Diagnosis Results"
-          subtitle="AI-computed clinical probabilities based on symptom pattern matching"
-          badge={
-            results ? (
-              <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
-                {results.length} Matches Found
-              </span>
-            ) : undefined
-          }
-        >
-          {!results ? (
-            <div className="text-center py-12 text-slate-500">
-              Fill out the patient form and click analyze to display differential diagnosis.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {results.map((item) => (
-                <div
-                  key={item.id}
-                  className={`p-4 rounded-xl border transition-all ${
-                    item.isRareDisease
-                      ? 'border-purple-200 bg-purple-50/30'
-                      : 'border-slate-200 bg-slate-50/60'
-                  }`}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-                    <div>
-                      <h4 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                        {item.diseaseName}
-                      </h4>
-                      <p className="text-xs text-slate-500 font-mono">ICD Reference: {item.icdCode}</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {item.isRareDisease && <Badge variant="Rare Disease">Rare Disease Entity</Badge>}
-                      <Badge variant={item.probability >= 50 ? 'danger' : 'info'}>
-                        {item.probability}% Probability
-                      </Badge>
-                    </div>
-                  </div>
-
-                  {/* Probability Bar */}
-                  <div className="w-full bg-slate-200 rounded-full h-1.5 mb-3 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${
-                        item.probability >= 70
-                          ? 'bg-blue-600'
-                          : item.probability >= 30
-                          ? 'bg-amber-500'
-                          : 'bg-slate-400'
-                      }`}
-                      style={{ width: `${item.probability}%` }}
-                    />
-                  </div>
-
-                  <p className="text-sm text-slate-700 leading-relaxed mb-3">{item.description}</p>
-
-                  {item.recommendedAntibiotic && (
-                    <div className="text-xs bg-blue-50 text-blue-900 p-2.5 rounded-lg border border-blue-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                      <span>
-                        <strong>Suggested Regimen:</strong> {item.recommendedAntibiotic}
-                      </span>
-                      <Button
-                        variant="secondary"
-                        onClick={() => setSelectedDiagnosis(item)}
-                        className="text-xs py-1 px-2.5 min-h-[30px] shrink-0"
-                      >
-                        View Protocol
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-      </section>
-
-      {/* Disease Protocol Modal */}
-      {selectedDiagnosis && (
-        <Modal
-          isOpen={Boolean(selectedDiagnosis)}
-          onClose={() => setSelectedDiagnosis(null)}
-          title={`Clinical Guideline: ${selectedDiagnosis.diseaseName}`}
-        >
+    <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
+      <section className="space-y-5">
+        <Card title="Patient assessment" subtitle="Enter symptoms to create a local, illustrative differential.">
           <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono bg-slate-100 text-slate-800 px-2.5 py-1 rounded">
-                ICD: {selectedDiagnosis.icdCode}
-              </span>
-              {selectedDiagnosis.isRareDisease ? (
-                <Badge variant="Rare Disease">Rare Pathology</Badge>
-              ) : (
-                <Badge variant="Normal">Common Infectious Disease</Badge>
-              )}
+            <Input id="patient-name" label="Patient name" autoComplete="off" value={patient.rawName} onChange={(e) => setPatient((current) => ({ ...current, rawName: e.target.value }))} placeholder="e.g. Jordan Lee" helperText="Converted locally to a pseudonymous ID on submission; the name is then cleared." />
+            <div className="grid grid-cols-2 gap-3">
+              <Input id="patient-age" label="Age (years)" type="number" min="0" max="120" value={patient.age} onChange={(e) => setPatient((current) => ({ ...current, age: e.target.value }))} placeholder="Years" />
+              <div><label htmlFor="patient-gender" className="mb-2 block text-xs font-semibold text-slate-300">Gender (optional)</label><select id="patient-gender" value={patient.gender} onChange={(e) => setPatient((current) => ({ ...current, gender: e.target.value as PatientState['gender'] }))} className="min-h-[42px] w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-xs text-slate-200 focus:border-cyan-400 focus:outline-none"><option value="">Not provided</option><option value="female">Female</option><option value="male">Male</option><option value="intersex">Intersex</option><option value="unknown">Unknown</option></select></div>
             </div>
-
-            <div className="space-y-1">
-              <h4 className="text-xs font-bold text-slate-900 uppercase">Pathology Overview</h4>
-              <p className="text-xs text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-200">
-                {selectedDiagnosis.description}
-              </p>
-            </div>
-
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900 space-y-1">
-              <h4 className="font-bold">First-Line Antimicrobial Strategy:</h4>
-              <p>{selectedDiagnosis.recommendedAntibiotic || 'Symptomatic supportive therapy.'}</p>
-            </div>
-
-            <div className="flex justify-end pt-3 border-t border-slate-100">
-              <Button variant="secondary" onClick={() => setSelectedDiagnosis(null)}>
-                Close
-              </Button>
-            </div>
+            <Textarea id="symptoms" label="Clinical symptoms" value={patient.symptomsRaw} onChange={(e) => setPatient((current) => ({ ...current, symptomsRaw: e.target.value }))} rows={5} placeholder="Describe the presenting symptoms, onset, duration, and relevant findings..." helperText="Matching is local to this browser; include symptoms in the patient's own words." />
+            <div className="rounded-xl border border-slate-800 bg-[#0b0f19] p-3"><span className="text-[10px] font-semibold text-slate-400">Patient reference</span><p className="mt-1 break-all font-mono text-xs text-cyan-200">{patient.hashedId || 'Created after assessment'}</p></div>
+            <div><div className="mb-2 text-xs font-semibold text-slate-300">Clinical presets</div><div className="flex flex-wrap gap-2">{[['cap', 'CAP pneumonia'], ['uti', 'UTI'], ['fabry', 'Fabry crisis'], ['gbs', 'GBS']].map(([key, label]) => <Button key={key} type="button" className="min-h-8 px-3 py-1 text-[11px]" onClick={() => onPreset(key)}>{label}</Button>)}</div></div>
+            <Button type="button" variant="primary" className="w-full" onClick={onEvaluate} disabled={!patient.symptomsRaw.trim()}><Search size={15} /> Generate differential <span aria-hidden="true">→</span></Button>
           </div>
-        </Modal>
-      )}
+        </Card>
+        <Card title="Safety context" subtitle="For demonstration only; not a dosing calculator.">
+          <label htmlFor="egfr" className="mb-2 flex justify-between text-xs text-slate-300"><span>eGFR</span><strong className="text-cyan-200">{patient.egfr} mL/min/1.73m²</strong></label>
+          <input id="egfr" type="range" min="5" max="120" value={patient.egfr} onChange={(e) => setPatient((current) => ({ ...current, egfr: Number(e.target.value) }))} className="w-full accent-cyan-400" />
+          <fieldset className="mt-4 space-y-2"><legend className="mb-2 text-xs font-semibold text-slate-300">Reported allergies</legend>{allergyLabels.map(([key, label]) => <label key={key} className="flex cursor-pointer items-center gap-2 text-xs text-slate-400"><input type="checkbox" checked={patient.allergies.includes(key)} onChange={() => setPatient((current) => ({ ...current, allergies: current.allergies.includes(key) ? current.allergies.filter((x) => x !== key) : [...current.allergies, key] }))} className="accent-cyan-400" />{label}</label>)}</fieldset>
+        </Card>
+      </section>
+      <section aria-live="polite" className="space-y-5">
+        <Card className="border-cyan-400/15 bg-gradient-to-br from-cyan-400/[0.06] to-slate-900">
+          <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">Decision support workspace</p><h2 className="mt-2 text-xl font-bold text-white">Differential overview</h2><p className="mt-1 text-xs leading-5 text-slate-400">Pattern matching is educational only and cannot diagnose, rule out, or recommend treatment.</p></div><Badge variant="cyan"><ShieldCheck size={12} className="mr-1" /> SHA-256 pseudonym · local demo</Badge></div>
+        </Card>
+        {matches.length > 0 ? <div className="space-y-3">
+          <div className="flex items-center justify-between"><h3 className="text-sm font-bold text-white">{hasEvaluated ? 'Potential matches' : 'Live symptom signals'}</h3><span className="text-[10px] text-slate-500">{matches.length} results</span></div>
+          <Card title="Match score analytics" subtitle="Relative pattern-match estimates; not disease probabilities or validated predictions">
+            <div className="space-y-3" role="img" aria-label="Horizontal bars visualizing heuristic match scores">
+              {matches.slice(0, 5).map((match) => <div key={match.disease.id}>
+                <div className="mb-1 flex justify-between gap-3 text-[10px]"><span className="truncate text-slate-300">{match.disease.name}</span><span className="shrink-0 font-mono text-cyan-200">{match.probability}%</span></div>
+                <div className="h-2 overflow-hidden rounded-full bg-slate-800"><div className={`h-full rounded-full ${match.disease.rare ? 'bg-purple-400' : 'bg-cyan-400'}`} style={{ width: `${match.probability}%` }} /></div>
+              </div>)}
+            </div>
+          </Card>
+          {matches.map((match, i) => <button type="button" key={match.disease.id} onClick={() => onSelect(match)} className="w-full text-left">
+            <Card className="group transition hover:-translate-y-0.5 hover:border-cyan-400/40 hover:bg-slate-900"><div className="flex items-start gap-4">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-700 bg-slate-800 font-mono text-xs text-cyan-200">{String(i + 1).padStart(2, '0')}</span>
+              <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><h4 className="font-bold text-white group-hover:text-cyan-100">{match.disease.name}</h4><Badge variant={match.disease.rare ? 'Rare Disease' : 'cyan'}>{match.probability}% match</Badge></div>
+                <p className="mt-1 text-[10px] text-slate-500">ICD-11: {match.disease.icd11Verified ? match.disease.icd11 : `${match.disease.icd11} · unverified`}</p>
+                <div className="mt-3 flex flex-wrap gap-1.5">{match.matchedSignals.map((signal) => <Badge key={signal} variant="slate">{signal}</Badge>)}{match.disease.rare && <Badge variant="purple"><Sparkles size={11} className="mr-1" /> Rare signal</Badge>}</div>
+                <div className="mt-3 rounded-xl border border-slate-800 bg-[#0b0f19] px-3 py-2 text-xs text-slate-400"><span className="mr-2 text-[9px] font-bold tracking-widest text-cyan-300">CARE NOTE</span>{match.disease.careNote}</div>
+                <div className="mt-2 flex items-center gap-1 text-[10px] text-slate-500"><FileText size={12} /> Open patient education and therapy cautions</div>
+              </div>
+            </div></Card>
+          </button>)}
+        </div> : <Card className="grid min-h-64 place-items-center text-center"><div><Activity className="mx-auto h-8 w-8 text-slate-600" /><h3 className="mt-3 font-semibold text-slate-300">No matching signals yet</h3><p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">Enter symptoms or load a clinical preset. No match does not exclude disease.</p></div></Card>}
+        <Card className="border-amber-400/20 bg-amber-400/[0.04]"><div className="flex gap-3 text-xs leading-5 text-amber-100/80"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" /><p><strong className="text-amber-200">Clinical safety notice.</strong> This prototype is not a medical device or clinical guideline. Verify diagnoses, ICD-11 coding, allergies, doses, and treatment with qualified clinicians and current local protocols. For emergencies, activate local emergency care.</p></div></Card>
+      </section>
     </div>
   );
-};
+}

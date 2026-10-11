@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "test": "node --test src/crypto/patientCrypto.test.ts src/utils/symptomMatcher.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -25,4 +26,3 @@
     "vite": "^5.4.2"
   }
 }
-
