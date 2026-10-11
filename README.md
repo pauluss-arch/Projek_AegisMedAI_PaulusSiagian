@@ -66,3 +66,46 @@ aegismed-ai/
 ├── README.md            # Dokumentasi utama proyek
 ├── package.json         # Dependensi dan skrip proyek
 └── vite.config.ts       # Konfigurasi Vite
+
+
+## 🔐 Modul Kriptografi produk (Tugas Kriptografi)
+
+### 📋 1. Tabel Kebutuhan Kriptografi
+| Nama Data Sensus / Produk | Tujuan Keamanan | Algoritma / Mekanisme | Prioritas |
+|---|---|---|---|
+| **Identitas Pasien (Nama & NIK)** | *Confidentiality & Anonymization* | SHA-256 Pseudonymization Hashing | **High** |
+| **Catatan Rekam Medis & Diagnosa AI** | *Confidentiality & Integrity* | AES-256-GCM (Authenticated Encryption) | **High** |
+| **Resep Digital Antibiotik Dokter** | *Authenticity & Non-Repudiation* | HMAC-SHA256 Digital Verification | **Medium** |
+
+---
+
+### 📐 2. Rancangan Komponen Kriptografi
+1. **Anonimisasi Identitas Pasien (SHA-256):**
+   - **Masukan:** String Nama Asli Pasien (misal: `"Siti Rahma"`).
+   - **Proses:** Hashing menggunakan SHA-256 dengan format output Heksa desimal.
+   - **Keluaran:** Hash anonim sepanjang 64 karakter heksadesimal (`"PAT-SHA256-..."`).
+   - **Representasi Data:** Hex String.
+
+2. **Enkripsi Rekam Medis (AES-256-GCM):**
+   - **Masukan:** Teks Rekam Medis/Diagnosa (`Plaintext`) dan Kunci Rahasia 256-bit (`Hex`).
+   - **Proses:** Enkripsi simetris AES-256-GCM dengan *Initialization Vector* (IV) 96-bit unik.
+   - **Keluaran:** Objek `{ ciphertext, iv, authTag }`.
+   - **Sumber Keacakan (CSPRNG):** `crypto.randomBytes(12)` untuk menghasilkan IV yang selalu unik dan aman secara kriptografis.
+
+---
+
+### 🧪 3. Skenario Uji Otomatis (Unit Testing)
+
+Terdapat **4 skenario uji otomatis** di berkas `src/crypto/patientCrypto.test.ts`:
+
+1. **Uji Positif 1 (Consistency Test):** Memastikan fungsi *hash* SHA-256 menghasilkan nilai terenkripsi yang konsisten untuk input nama pasien yang sama. (**BERHASIL**)
+2. **Uji Positif 2 (Reversibility Test):** Memastikan proses Enkripsi AES-256-GCM dan Dekripsi dengan kunci yang benar mengembalikan rekam medis asli tanpa ada data terdistorsi. (**BERHASIL**)
+3. **Uji Positif 3 (CSPRNG Randomness Test):** Memastikan dua proses enkripsi berurutan dengan teks yang sama menghasilkan *Initialization Vector* (IV) dan *ciphertext* yang berbeda (mencegah *replay attack*). (**BERHASIL**)
+4. **Uji Negatif / Edge Case (Security Failure Test):** Memastikan proses dekripsi dengan kunci rahasia (*Secret Key*) yang salah **Gagal (Throws Error)** dan menolak mengekspos data rekam medis pasien. (**BERHASIL**)
+
+#### Cara Menjalankan Uji Otomatis:
+Jalankan perintah berikut di terminal Anda:
+```bash
+npm run test:crypto
+# atau menggunakan node/ts-node langsung:
+npx tsx src/crypto/patientCrypto.test.ts
