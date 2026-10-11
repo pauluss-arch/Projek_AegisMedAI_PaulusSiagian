@@ -114,7 +114,6 @@ medic/
 │   ├── index.css                # Custom scrollbar styling & Tailwind imports
 │   └── main.tsx                 # Entry point React
 ├── public/                      # Aset statis publik
-├── README.md                    # Dokumentasi utama proyek
 ├── package.json                 # Dependensi & skrip proyek
 └── vite.config.ts               # Konfigurasi Vite
 ```
