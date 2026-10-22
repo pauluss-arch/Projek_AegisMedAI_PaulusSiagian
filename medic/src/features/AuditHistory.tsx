@@ -1,4 +1,5 @@
 import { Clock3, Trash2 } from 'lucide-react';
+import Link from 'next/link';
 import type { AssessmentHistoryEntry } from '../types';
 import { Button } from '../components/UI/Button';
 import { Badge } from '../components/UI/Badge';
@@ -11,6 +12,7 @@ export function AuditHistory({ entries, onClear }: { entries: AssessmentHistoryE
         <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="flex items-center gap-2 font-mono text-xs text-cyan-200"><Clock3 size={13} />{new Date(entry.timestamp).toLocaleString()}</p><p className="mt-2 text-[10px] text-slate-500">Patient reference: {entry.patientHashId}</p></div><Badge variant={entry.signatureStatus === 'Not signed' ? 'amber' : 'green'}>{entry.signatureStatus}</Badge></div>
         <ul className="mt-4 space-y-2">{entry.diagnoses.map((diagnosis) => <li key={`${diagnosis.name}-${diagnosis.icd11}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[#0b0f19] px-3 py-2 text-xs"><span className="font-medium text-slate-200">{diagnosis.name}<span className="ml-2 text-[10px] text-slate-500">{diagnosis.icd11}</span></span><Badge variant="cyan">{diagnosis.probability}% match signal</Badge></li>)}</ul>
         <p className="mt-3 text-[10px] text-slate-500">Selected therapy: {entry.prescribedAntibiotic ?? 'None recorded'}</p>
+        <Link href={`/assessments/${encodeURIComponent(entry.id)}`} className="mt-4 inline-flex min-h-[42px] items-center rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold text-cyan-200 transition-colors hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400">View assessment</Link>
     </Card>)}
   </section>;
 }

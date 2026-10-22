@@ -1,11 +1,17 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
+      textColor: {
+        slate: {
+          500: '#94a3b8',
+          600: '#94a3b8',
+        },
+      },
       screens: {
         'sm': '640px',
         'md': '768px',
@@ -16,4 +22,3 @@ export default {
   },
   plugins: [],
 }
-

@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useMemo, useState } from 'react';
 import { Activity, FileDown, LockKeyhole, ShieldAlert } from 'lucide-react';
 import { Navbar } from './components/Layout/Navbar';
@@ -5,17 +7,16 @@ import { Badge } from './components/UI/Badge';
 import { Button } from './components/UI/Button';
 import { Card } from './components/UI/Card';
 import { Modal } from './components/UI/Modal';
-import { AntibioticChecker } from './pages/AntibioticChecker';
-import { AuditHistory } from './pages/AuditHistory';
-import { PatientDiagnosis } from './pages/PatientDiagnosis';
-import { RareExplorer } from './pages/RareExplorer';
+import { AntibioticChecker } from './features/AntibioticChecker';
+import { AuditHistory } from './features/AuditHistory';
+import { PatientDiagnosis } from './features/PatientDiagnosis';
+import { RareExplorer } from './features/RareExplorer';
 import { createPatientPseudonym } from './crypto/patientCrypto';
 import { diseases } from './mock/diseasesData';
 import type { AllergyKey, AssessmentHistoryEntry, DiagnosisMatch, Disease, PatientState, TabId, TherapyOption } from './types';
+import { HISTORY_LIMIT, migrateHistory, STORAGE_KEY } from './utils/assessmentStorage';
 import { matchSymptoms } from './utils/symptomMatcher';
 
-const STORAGE_KEY = 'aegismed.preferences.v2';
-const HISTORY_LIMIT = 25;
 type StoredState = { egfr: number; allergies: AllergyKey[]; patientId: string; history: AssessmentHistoryEntry[] };
 const emptyPatient: PatientState = {
   rawName: '',
@@ -32,35 +33,6 @@ const presets: Record<string, { text: string; diseaseId: string }> = {
   fabry: { text: 'Burning pain in hands and feet, reduced sweating, angiokeratomas, and a family history of kidney or heart disease.', diseaseId: 'fabry' },
   gbs: { text: 'Progressive weakness ascending from the legs, tingling in both feet, and reduced reflexes after a recent infection.', diseaseId: 'gbs' },
 };
-
-function isStoredHistory(value: unknown): value is AssessmentHistoryEntry {
-  if (!value || typeof value !== 'object') return false;
-  const entry = value as Partial<AssessmentHistoryEntry>;
-  return typeof entry.id === 'string' && typeof entry.timestamp === 'string' &&
-    Number.isFinite(Date.parse(entry.timestamp)) && typeof entry.patientHashId === 'string' &&
-    Array.isArray(entry.diagnoses) && entry.diagnoses.every((item) =>
-      typeof item?.name === 'string' && Number.isFinite(item.probability) && typeof item.icd11 === 'string') &&
-    (entry.signatureStatus === 'Not signed' || entry.signatureStatus === 'Demo signature confirmed') &&
-    (entry.prescribedAntibiotic === null || typeof entry.prescribedAntibiotic === 'string');
-}
-
-function migrateHistory(value: unknown): AssessmentHistoryEntry[] {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((item: unknown) => {
-    if (isStoredHistory(item)) return [item];
-    if (!item || typeof item !== 'object') return [];
-    const legacy = item as { id?: unknown; timestamp?: unknown; patientId?: unknown; diagnoses?: unknown; prescriptionStatus?: unknown };
-    const migrated: AssessmentHistoryEntry = {
-      id: typeof legacy.id === 'string' ? legacy.id : crypto.randomUUID(),
-      timestamp: typeof legacy.timestamp === 'string' ? legacy.timestamp : new Date().toISOString(),
-      patientHashId: typeof legacy.patientId === 'string' ? legacy.patientId : '',
-      diagnoses: Array.isArray(legacy.diagnoses) ? legacy.diagnoses as AssessmentHistoryEntry['diagnoses'] : [],
-      prescribedAntibiotic: null,
-      signatureStatus: legacy.prescriptionStatus === 'Demo signature confirmed' ? 'Demo signature confirmed' : 'Not signed',
-    };
-    return isStoredHistory(migrated) ? [migrated] : [];
-  }).slice(0, HISTORY_LIMIT);
-}
 
 function printReport(disease: Disease, patientId: string, probability: number, egfr: number, signatureStatus: string) {
   const reportWindow = window.open('', '_blank');
