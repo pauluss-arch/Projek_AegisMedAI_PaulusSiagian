@@ -33,6 +33,24 @@ const presets: Record<string, { text: string; diseaseId: string }> = {
   fabry: { text: 'Burning pain in hands and feet, reduced sweating, angiokeratomas, and a family history of kidney or heart disease.', diseaseId: 'fabry' },
   gbs: { text: 'Progressive weakness ascending from the legs, tingling in both feet, and reduced reflexes after a recent infection.', diseaseId: 'gbs' },
 };
+const tabContent: Record<TabId, { title: string; description: string }> = {
+  diagnosis: {
+    title: 'Patient assessment',
+    description: 'Explore a structured differential from the clinical picture, with clear reasoning and next steps.',
+  },
+  antibiotic: {
+    title: 'Antibiotic safety',
+    description: 'Review antimicrobial considerations alongside allergies and patient-specific safety factors.',
+  },
+  database: {
+    title: 'Rare disease explorer',
+    description: 'Explore reference information for uncommon diseases and their associated clinical findings.',
+  },
+  history: {
+    title: 'Audit history',
+    description: 'Review locally stored assessment activity and its recorded decision-support signals.',
+  },
+};
 
 function printReport(disease: Disease, patientId: string, probability: number, egfr: number, signatureStatus: string) {
   const reportWindow = window.open('', '_blank');
@@ -86,6 +104,13 @@ function App() {
   const [selectedDisease, setSelectedDisease] = useState<Disease | null>(null);
   const [selectedProbability, setSelectedProbability] = useState(0);
   const [signatureConfirm, setSignatureConfirm] = useState(false);
+
+  useEffect(() => {
+    const requestedTab = new URLSearchParams(window.location.search).get('tab');
+    const availableTabs: TabId[] = ['diagnosis', 'antibiotic', 'database', 'history'];
+    const initialTab = availableTabs.find((tab) => tab === requestedTab);
+    if (initialTab) setActiveTab(initialTab);
+  }, []);
 
   useEffect(() => {
     try {
@@ -209,8 +234,8 @@ function App() {
         <section aria-labelledby="page-title" className="flex flex-wrap items-end justify-between gap-4 py-2">
           <div>
             <Badge variant="cyan"><Activity size={11} className="mr-1" /> Clinical intelligence workspace</Badge>
-            <h1 id="page-title" className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl">{activeTab === 'diagnosis' ? 'Patient assessment' : activeTab === 'antibiotic' ? 'Antibiotic safety' : activeTab === 'database' ? 'Rare disease explorer' : 'Audit history'}</h1>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Explore a structured differential from the clinical picture, with clear reasoning and next steps.</p>
+            <h1 id="page-title" className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl">{tabContent[activeTab].title}</h1>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">{tabContent[activeTab].description}</p>
           </div>
           <Badge variant="purple"><LockKeyhole size={12} className="mr-1" /> Local pseudonymization · No external AI calls</Badge>
         </section>

@@ -77,7 +77,7 @@
 
 ## 🛠️ 4. Teknologi yang Digunakan
 
-* **Framework Utama:** React 18+ (Vite)
+* **Framework Utama:** Next.js 16 App Router dengan React 19
 * **Bahasa Pemrograman:** TypeScript
 * **Styling & UI:** Tailwind CSS (Dark Mode Aesthetic / Medical Cyberpunk)
 * **Aksesibilitas (a11y):** HTML5 Semantik, atribut ARIA (`aria-invalid`), label eksplisit `htmlFor`, dan kontras warna WCAG 2.1 AA.
@@ -92,6 +92,22 @@ Mock data disimpan secara terstruktur di `src/mock/diseasesData.ts` sebagai simu
 ```text
 medic/
 ├── app/
+│   ├── about/                   # Informasi produk
+│   ├── assessments/[id]/        # Detail riwayat pemeriksaan lokal
+│   ├── clinical-tools/          # Direktori fitur klinis AegisMed
+│   ├── layout.tsx               # Root layout, metadata, dan navigasi
+│   └── page.tsx                 # Workspace utama
+├── src/
+│   ├── components/              # Komponen UI bersama
+│   ├── crypto/                  # Pseudonimisasi, enkripsi, dan pengujian
+│   ├── features/                # Diagnosis, stewardship, referensi, dan riwayat
+│   ├── mock/                    # Data penyakit dan referensi
+│   ├── utils/                   # Pencocokan gejala dan penyimpanan lokal
+│   └── App.tsx                  # Interaksi workspace utama
+├── docs/                        # Dokumentasi dan bukti audit
+├── security/                    # Threat model
+├── package.json                 # Dependensi dan skrip proyek
+└── next.config.ts               # Konfigurasi Next.js dan redirect URL lama
 │   ├── page.tsx
 │   ├── layout.tsx
 │   └── assessments/
@@ -159,14 +175,14 @@ medic/
    npm run dev
    ```
 
-4. **Akses di Browser:** Buka `http://localhost:5173`.
+4. **Akses di Browser:** Buka `http://localhost:3000`.
 
 ## B. Menjalankan Uji Otomatis Kriptografi (Unit Test)
 
 Jalankan perintah berikut untuk mengeksekusi skenario uji otomatis:
 
 ```bash
-npx tsx src/crypto/patientCrypto.test.ts
+npm test
 ```
 
 ---
@@ -221,6 +237,5 @@ npm run test:crypto
 # atau menggunakan node/ts-node langsung:
 npx tsx src/crypto/patientCrypto.test.ts
 ```
-
 
 
