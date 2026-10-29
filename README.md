@@ -55,23 +55,23 @@
 ## 🚀 3. Fitur Utama
 
 1. **Fuzzy Natural Language & Layman Symptom Matching:**
-   - Mampu mengekstrak kata kunci medis dari masukan kalimat biasa, bahasa awam, maupun typo pasien (misal: *"extrem headache"*, *"menceret"*, *"pusing banget"*) serta mengabaikan *stop-words*[cite: 3].
+   - Mampu mengekstrak kata kunci medis dari masukan kalimat biasa, bahasa awam, maupun typo pasien (misal: *"extrem headache"*, *"menceret"*, *"pusing banget"*) serta mengabaikan *stop-words*.
 2. **AI Diagnosis & Interactive Diagnostic Cards:**
-   - Kartu hasil *differential diagnosis* bertema *Dark Mode* yang dapat diklik (*clickable*) untuk membuka modal detail[cite: 1, 3].
-   - Penjelasan penyakit ramah pasien (non-teknis) beserta tanda bahaya (*red flags*)[cite: 3].
+   - Kartu hasil *differential diagnosis* bertema *Dark Mode* yang dapat diklik (*clickable*) untuk membuka modal detail.
+   - Penjelasan penyakit ramah pasien (non-teknis) beserta tanda bahaya (*red flags*).
 3. **Smart Antibiotic Stewardship Verification:**
-   - Pencocokan antibiotik teruji klinis berdasarkan patogen dan indikasi[cite: 3].
-   - Penyesuaian dosis otomatis berdasarkan slider fungsi ginjal pasien (eGFR) dan centang alergi penisilin/sulfa[cite: 3].
+   - Pencocokan antibiotik teruji klinis berdasarkan patogen dan indikasi.
+   - Penyesuaian dosis otomatis berdasarkan slider fungsi ginjal pasien (eGFR) dan centang alergi penisilin/sulfa.
 4. **Rare Disease Knowledge Explorer (Tab 3):**
-   - Katalog dan pencarian real-time 12+ penyakit langka berbasis kode ICD-11 dan pola gejala klinis (*symptom signals*)[cite: 3].
+   - Katalog dan pencarian real-time 12+ penyakit langka berbasis kode ICD-11 dan pola gejala klinis (*symptom signals*).
 5. **PDF Export / Print-Ready Medical Report Generator:**
-   - Menyediakan fungsi cetak/ekspor resume medis lengkap dengan identitas terenkripsi dan status tanda tangan digital[cite: 3].
+   - Menyediakan fungsi cetak/ekspor resume medis lengkap dengan identitas terenkripsi dan status tanda tangan digital.
 6. **Audit History Log & LocalStorage Sync (Tab 4):**
-   - Merekam riwayat evaluasi diagnostik yang tersinkronisasi otomatis dengan `localStorage` browser agar data tidak hilang saat *refresh*[cite: 3].
+   - Merekam riwayat evaluasi diagnostik yang tersinkronisasi otomatis dengan `localStorage` browser agar data tidak hilang saat *refresh*.
 7. **Visual Match Score Analytics Bar:**
-   - Bilah grafik progresi visual untuk persentase probabilitas hasil diagnosis[cite: 3].
+   - Bilah grafik progresi visual untuk persentase probabilitas hasil diagnosis.
 8. **Quick Clinical Presets:**
-   - Tombol satu-klik untuk memuat skenario klinis langsung (misal: *"Load CAP Pneumonia"*, *"Load UTI"*, *"Load Rare Fabry Crisis"*)[cite: 3].
+   - Tombol satu-klik untuk memuat skenario klinis langsung (misal: *"Load CAP Pneumonia"*, *"Load UTI"*, *"Load Rare Fabry Crisis"*).
 
 ---
 
@@ -79,15 +79,15 @@
 
 * **Framework Utama:** Next.js 16 App Router dengan React 19
 * **Bahasa Pemrograman:** TypeScript
-* **Styling & UI:** Tailwind CSS (Dark Mode Aesthetic / Medical Cyberpunk)[cite: 1, 2]
-* **Aksesibilitas (a11y):** HTML5 Semantik, atribut ARIA (`aria-invalid`), label eksplisit `htmlFor`, dan kontras warna WCAG 2.1 AA[cite: 3].
-* **Kriptografi:** Web Crypto API / Node `crypto` (SHA-256, AES-256-GCM)[cite: 3].
+* **Styling & UI:** Tailwind CSS (Dark Mode Aesthetic / Medical Cyberpunk)
+* **Aksesibilitas (a11y):** HTML5 Semantik, atribut ARIA (`aria-invalid`), label eksplisit `htmlFor`, dan kontras warna WCAG 2.1 AA.
+* **Kriptografi:** Web Crypto API / Node `crypto` (SHA-256, AES-256-GCM).
 
 ---
 
 ## 📁 5. Struktur Folder Proyek & Mock Data (Persiapan Database MS2)
 
-Mock data disimpan secara terstruktur di `src/mock/diseasesData.ts` sebagai simulasi database sebelum integrasi backend pada Milestone 2[cite: 3]:
+Mock data disimpan secara terstruktur di `src/mock/diseasesData.ts` sebagai simulasi database sebelum integrasi backend pada Milestone 2:
 
 ```text
 medic/
@@ -108,6 +108,49 @@ medic/
 ├── security/                    # Threat model
 ├── package.json                 # Dependensi dan skrip proyek
 └── next.config.ts               # Konfigurasi Next.js dan redirect URL lama
+│   ├── page.tsx
+│   ├── layout.tsx
+│   └── assessments/
+│       └── [id]/
+│           └── page.tsx
+├── src/
+│   ├── App.tsx
+│   ├── components/
+│   │   ├── Layout/
+│   │   │   └── Navbar.tsx
+│   │   └── UI/
+│   │       ├── Button.tsx
+│   │       ├── Card.tsx
+│   │       ├── Input.tsx
+│   │       ├── Modal.tsx
+│   │       ├── Badge.tsx
+│   │       ├── Icons.tsx
+│   │       └── Textarea.tsx
+│   ├── features/
+│   │   ├── diagnosis/
+│   │   ├── antibiotic-checker/
+│   │   ├── audit-history/
+│   │   └── rare-disease-explorer/
+│   ├── crypto/
+│   ├── mock/
+│   │   └── diseasesData.ts
+│   ├── types/
+│   │   └── index.ts
+│   ├── utils/
+│   │   ├── symptomMatcher.ts
+│   │   └── assessmentStorage.ts
+│   └── index.css
+├── docs/
+│   └── dokumentasi dan screenshot pengujian
+├── security/
+│   └── THREAT_MODEL.md
+├── package.json
+├── package-lock.json
+├── tsconfig.json
+├── next.config.ts
+├── postcss.config.js
+├── tailwind.config.js
+└── .gitignore
 ```
 
 # 💻 6. Petunjuk Menjalankan Proyek & Pengujian
