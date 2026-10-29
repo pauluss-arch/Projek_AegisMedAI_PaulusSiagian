@@ -77,7 +77,7 @@
 
 ## 🛠️ 4. Teknologi yang Digunakan
 
-* **Framework Utama:** React 18+ (Vite)
+* **Framework Utama:** Next.js 16 App Router dengan React 19
 * **Bahasa Pemrograman:** TypeScript
 * **Styling & UI:** Tailwind CSS (Dark Mode Aesthetic / Medical Cyberpunk)[cite: 1, 2]
 * **Aksesibilitas (a11y):** HTML5 Semantik, atribut ARIA (`aria-invalid`), label eksplisit `htmlFor`, dan kontras warna WCAG 2.1 AA[cite: 3].
@@ -91,31 +91,23 @@ Mock data disimpan secara terstruktur di `src/mock/diseasesData.ts` sebagai simu
 
 ```text
 medic/
-├── dist/                        # Hasil build produksi aplikasi
-├── docs/                        # Dokumentasi pendukung & bukti audit
-│   └── lighthouse.png           # Bukti pengujian aksesibilitas Lighthouse
-├── security/                    # Artefak Keamanan Komputasi dan Siber
-│   └── THREAT_MODEL.md          # Threat Modeling STRIDE, DFD, & Risk Assessment (sec-0.1)
-├── src/                         # Source code utama aplikasi
-│   ├── components/              # Komponen UI Reusable (Button, Card, Badge, Modal, Input)
-│   │   └── Layout/              # Navbar & Sidebar
-│   ├── crypto/                  # Modul & Unit Testing Kriptografi
-│   │   ├── patientCrypto.ts     # Implementasi SHA-256, AES-256-GCM, & CSPRNG
-│   │   └── patientCrypto.test.ts# Skenario Uji Otomatis (Unit Test + Negative Test)
-│   ├── mock/                    # Data sintetis / mock data (Persiapan MS2)
-│   │   └── diseasesData.ts      # Database penyakit ICD-11 & dosis antibiotik
-│   ├── pages/                   # Halaman/Tab tampilan utama
-│   │   ├── PatientDiagnosis.tsx
-│   │   ├── AntibioticChecker.tsx
-│   │   ├── RareExplorer.tsx
-│   │   └── AuditHistory.tsx
-│   ├── utils/                   # Fuzzy Natural Language Symptom Matcher
-│   ├── App.tsx                  # Root Application Component
-│   ├── index.css                # Custom scrollbar styling & Tailwind imports
-│   └── main.tsx                 # Entry point React
-├── public/                      # Aset statis publik
-├── package.json                 # Dependensi & skrip proyek
-└── vite.config.ts               # Konfigurasi Vite
+├── app/
+│   ├── about/                   # Informasi produk
+│   ├── assessments/[id]/        # Detail riwayat pemeriksaan lokal
+│   ├── clinical-tools/          # Direktori fitur klinis AegisMed
+│   ├── layout.tsx               # Root layout, metadata, dan navigasi
+│   └── page.tsx                 # Workspace utama
+├── src/
+│   ├── components/              # Komponen UI bersama
+│   ├── crypto/                  # Pseudonimisasi, enkripsi, dan pengujian
+│   ├── features/                # Diagnosis, stewardship, referensi, dan riwayat
+│   ├── mock/                    # Data penyakit dan referensi
+│   ├── utils/                   # Pencocokan gejala dan penyimpanan lokal
+│   └── App.tsx                  # Interaksi workspace utama
+├── docs/                        # Dokumentasi dan bukti audit
+├── security/                    # Threat model
+├── package.json                 # Dependensi dan skrip proyek
+└── next.config.ts               # Konfigurasi Next.js dan redirect URL lama
 ```
 
 # 💻 6. Petunjuk Menjalankan Proyek & Pengujian
@@ -140,14 +132,14 @@ medic/
    npm run dev
    ```
 
-4. **Akses di Browser:** Buka `http://localhost:5173`.
+4. **Akses di Browser:** Buka `http://localhost:3000`.
 
 ## B. Menjalankan Uji Otomatis Kriptografi (Unit Test)
 
 Jalankan perintah berikut untuk mengeksekusi skenario uji otomatis:
 
 ```bash
-npx tsx src/crypto/patientCrypto.test.ts
+npm test
 ```
 
 ---
@@ -202,6 +194,5 @@ npm run test:crypto
 # atau menggunakan node/ts-node langsung:
 npx tsx src/crypto/patientCrypto.test.ts
 ```
-
 
 

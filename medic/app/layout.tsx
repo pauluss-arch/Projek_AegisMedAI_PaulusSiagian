@@ -3,9 +3,10 @@ import '../src/index.css';
 import { NavLink } from '../src/components/NavLink';
 
 const navigationLinks = [
-  { href: '/', label: 'Home' },
-  { href: '/catalog', label: 'Catalog' },
+  { href: '/', label: 'Workspace' },
+  { href: '/clinical-tools', label: 'Clinical tools' },
   { href: '/about', label: 'About' },
+  { href: '/masuk', label: 'Login' },
 ];
 
 export const metadata: Metadata = {
