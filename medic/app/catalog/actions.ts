@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
-import { tambahItem, judulSudahAda } from '../../lib/data';
+import { tambahItem, hapusItem, judulSudahAda } from '../../lib/data';
 import { skemaItem, type MasukanItem } from '../../lib/skema';
 import type { StatusForm } from '../../lib/status-form';
 import { bacaSesi, hapusSesi } from '../../lib/sesi';
@@ -31,7 +31,7 @@ export async function simpanItem(_statusSebelumnya: StatusForm, formData: FormDa
   }
 
   const masukan: MasukanItem = hasil.data;
-  if (judulSudahAda(masukan.judul)) {
+  if (await judulSudahAda(masukan.judul)) {
     return {
       galat: { judul: ['Judul item sudah tersedia. Gunakan judul yang berbeda.'] },
       pesan: 'Item tidak dapat disimpan karena judul sudah digunakan.',
@@ -40,7 +40,7 @@ export async function simpanItem(_statusSebelumnya: StatusForm, formData: FormDa
   }
 
   try {
-    tambahItem(masukan);
+    await tambahItem(masukan);
   } catch (error) {
     return {
       pesan: error instanceof Error ? error.message : 'Item gagal disimpan.',
@@ -50,6 +50,18 @@ export async function simpanItem(_statusSebelumnya: StatusForm, formData: FormDa
 
   revalidatePath('/catalog');
   redirect('/catalog');
+}
+
+export async function hapusItemAction(formData: FormData): Promise<void> {
+  if (!(await bacaSesi())) {
+    redirect('/masuk');
+  }
+
+  const id = formData.get('id');
+  if (typeof id === 'string' && id.trim()) {
+    await hapusItem(id.trim());
+    revalidatePath('/catalog');
+  }
 }
 
 export async function keluar(): Promise<void> {

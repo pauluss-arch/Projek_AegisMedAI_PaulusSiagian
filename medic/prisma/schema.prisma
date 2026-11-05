@@ -1,0 +1,30 @@
+// prisma/schema.prisma
+// Model untuk katalog instrumen klinis AegisMed AI (Clinical Catalog Items)
+// Prisma 7/8 + PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────
+// Model utama: Item katalog instrumen klinis
+// ─────────────────────────────────────────────────────────
+model CatalogItem {
+  id          String   @id @default(cuid())  // ID unik alfanumerik aman URL
+  judul       String                          // Nama/Judul instrumen medis atau modul diagnosis
+  deskripsi   String                          // Deskripsi indikasi atau petunjuk klinis
+  aktif       Boolean  @default(true)        // Status keaktifan: aktif (true) | non-aktif (false)
+  kategori    String   @default("Clinical")  // Kategori instrumen: Diagnosis, Antibiotik, Referensi, dll.
+  dibuatOleh  String   @default("Tim Medis") // Praktisi / dokter pengunggah instrumen
+  catatan     String?                         // Catatan instruksi klinis khusus (opsional/nullable)
+
+  createdAt   DateTime @default(now())       // Timestamp pencatatan awal
+  updatedAt   DateTime @updatedAt            // Timestamp pembaruan data terakhir
+
+  @@map("catalog_items")                      // Pemetaan nama tabel pada PostgreSQL
+}
+
