@@ -11,16 +11,22 @@ import { AntibioticChecker } from './features/AntibioticChecker';
 import { AuditHistory } from './features/AuditHistory';
 import { PatientDiagnosis } from './features/PatientDiagnosis';
 import { RareExplorer } from './features/RareExplorer';
-import { createPatientPseudonym } from './crypto/patientCrypto';
-import { diseases } from './mock/diseasesData';
-import type { AllergyKey, AssessmentHistoryEntry, DiagnosisMatch, Disease, PatientState, TabId, TherapyOption } from './types';
-import { HISTORY_LIMIT, migrateHistory, STORAGE_KEY } from './utils/assessmentStorage';
+import {
+  createPatientAction,
+  deletePatientAction,
+  recordDiagnosisAction,
+  signDiagnosisAction,
+  updatePatientAction,
+} from '../app/actions/patientActions';
+import type { AssessmentHistoryEntry, DiagnosisMatch, Disease, PatientState, PersistedPatient, TabId, TherapyOption } from './types';
+import { HISTORY_LIMIT } from './utils/assessmentStorage';
 import { matchSymptoms } from './utils/symptomMatcher';
 
-type StoredState = { egfr: number; allergies: AllergyKey[]; patientId: string; history: AssessmentHistoryEntry[] };
 const emptyPatient: PatientState = {
   rawName: '',
   hashedId: '',
+  patientId: '',
+  medicalRecordNum: '',
   age: '',
   gender: '',
   egfr: 90,
@@ -43,14 +49,36 @@ const tabContent: Record<TabId, { title: string; description: string }> = {
     description: 'Review antimicrobial considerations alongside allergies and patient-specific safety factors.',
   },
   database: {
-    title: 'Rare disease explorer',
-    description: 'Explore reference information for uncommon diseases and their associated clinical findings.',
+    title: 'Disease reference library',
+    description: 'Explore disease reference entries and their associated clinical findings.',
   },
   history: {
     title: 'Audit history',
-    description: 'Review locally stored assessment activity and its recorded decision-support signals.',
+    description: 'Review persisted patient assessments and their recorded decision-support signals.',
   },
 };
+
+function historyFromPatients(patients: PersistedPatient[]): AssessmentHistoryEntry[] {
+  return patients
+    .flatMap((patient) => patient.diagnoses.map((diagnosis) => ({
+      id: diagnosis.id,
+      timestamp: diagnosis.createdAt,
+      patientHashId: patient.medicalRecordNum,
+      diagnoses: [{
+        name: diagnosis.diseaseName,
+        probability: diagnosis.matchPercentage,
+        icd11: diagnosis.icdCode,
+      }],
+      prescribedAntibiotic: diagnosis.prescribedDrug,
+      signatureStatus: diagnosis.digitalSignature ? 'Demo signature confirmed' as const : 'Not signed' as const,
+    })))
+    .sort((left, right) => Date.parse(right.timestamp) - Date.parse(left.timestamp));
+}
+
+function generateMedicalRecordNum(): string {
+  const value = crypto.getRandomValues(new Uint16Array(1))[0] ?? 0;
+  return `RM-${new Date().getFullYear()}-${String(value % 10000).padStart(4, '0')}`;
+}
 
 function printReport(disease: Disease, patientId: string, probability: number, egfr: number, signatureStatus: string) {
   const reportWindow = window.open('', '_blank');
@@ -94,16 +122,28 @@ function printReport(disease: Disease, patientId: string, probability: number, e
   reportWindow.print();
 }
 
-function App() {
+function App({ initialPatients, initialDiseases }: { initialPatients: PersistedPatient[]; initialDiseases: Disease[] }) {
   const [activeTab, setActiveTab] = useState<TabId>('diagnosis');
   const [patient, setPatient] = useState<PatientState>(emptyPatient);
-  const [history, setHistory] = useState<AssessmentHistoryEntry[]>([]);
-  const [storageReady, setStorageReady] = useState(false);
+  const [savedPatients, setSavedPatients] = useState(initialPatients);
+  const [history, setHistory] = useState<AssessmentHistoryEntry[]>(() => historyFromPatients(initialPatients));
   const [storageError, setStorageError] = useState('');
+  const [patientFieldErrors, setPatientFieldErrors] = useState<Record<string, string[] | undefined>>({});
+  const [patientSaveError, setPatientSaveError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [signatureError, setSignatureError] = useState('');
+  const [isSigning, setIsSigning] = useState(false);
   const [evaluated, setEvaluated] = useState(false);
   const [selectedDisease, setSelectedDisease] = useState<Disease | null>(null);
   const [selectedProbability, setSelectedProbability] = useState(0);
   const [signatureConfirm, setSignatureConfirm] = useState(false);
+
+  useEffect(() => {
+    setPatient((current) => current.medicalRecordNum ? current : {
+      ...current,
+      medicalRecordNum: generateMedicalRecordNum(),
+    });
+  }, []);
 
   useEffect(() => {
     const requestedTab = new URLSearchParams(window.location.search).get('tab');
@@ -112,37 +152,29 @@ function App() {
     if (initialTab) setActiveTab(initialTab);
   }, []);
 
+  const hasPenicillinAlg = patient.allergies.includes('penicillin');
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const stored = JSON.parse(raw) as Partial<StoredState>;
-        setPatient((current) => ({
-          ...current,
-          egfr: typeof stored.egfr === 'number' && stored.egfr >= 5 && stored.egfr <= 120 ? stored.egfr : current.egfr,
-          allergies: Array.isArray(stored.allergies) ? stored.allergies.filter((value): value is AllergyKey => ['penicillin', 'sulfa', 'macrolide'].includes(value)) : current.allergies,
-          hashedId: typeof stored.patientId === 'string' && /^PAT-[A-F0-9]{8}-\d{4}$/.test(stored.patientId) ? stored.patientId : current.hashedId,
-        }));
-        setHistory(migrateHistory(stored.history));
-      }
-    } catch {
-      setStorageError('Local preferences could not be read. The assessment remains available without restored history.');
-    } finally {
-      setStorageReady(true);
-    }
-  }, []);
+    if (!patient.patientId) return;
+    const timer = window.setTimeout(() => {
+      void updatePatientAction({
+        id: patient.patientId,
+        eGFR: patient.egfr,
+        hasPenicillinAlg,
+      }).then((result) => {
+        if (!result.success) {
+          setStorageError(result.message);
+          return;
+        }
+        setSavedPatients((current) => current.map((item) => item.id === result.patient.id ? result.patient : item));
+        setStorageError('');
+      }).catch((error: unknown) => {
+        setStorageError(error instanceof Error ? error.message : 'Patient safety details could not be saved.');
+      });
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [patient.patientId, patient.egfr, hasPenicillinAlg]);
 
-  useEffect(() => {
-    if (!storageReady) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ egfr: patient.egfr, allergies: patient.allergies, patientId: patient.hashedId, history } satisfies StoredState));
-      setStorageError('');
-    } catch {
-      setStorageError('Local browser storage is unavailable or full. Changes may not persist after this session.');
-    }
-  }, [patient.egfr, patient.allergies, patient.hashedId, history, storageReady]);
-
-  const matches = useMemo(() => evaluated ? matchSymptoms(patient.symptomsRaw, diseases) : [], [evaluated, patient.symptomsRaw]);
+  const matches = useMemo(() => evaluated ? matchSymptoms(patient.symptomsRaw, initialDiseases) : [], [evaluated, patient.symptomsRaw, initialDiseases]);
   const selectedForSafety = selectedDisease ?? matches[0]?.disease;
 
   const selectDiagnosis = (match: DiagnosisMatch) => {
@@ -154,77 +186,212 @@ function App() {
     setSelectedProbability(matches.find((match) => match.disease.id === disease.id)?.probability ?? 0);
   };
 
-  const runEvaluation = async (symptoms: string, rawName: string) => {
+  const runEvaluation = async (symptoms: string) => {
     if (!symptoms.trim()) return;
+    setPatientSaveError('');
+    setPatientFieldErrors({});
+    setIsSaving(true);
     try {
-      const identifier = rawName.trim()
-        ? await createPatientPseudonym(rawName)
-        : patient.hashedId || `PAT-${crypto.randomUUID().split('-').join('').slice(0, 8).toUpperCase()}-${new Date().getFullYear()}`;
-      setPatient((current) => ({ ...current, rawName: '', hashedId: identifier, symptomsRaw: symptoms }));
-      setEvaluated(true);
-      const result = matchSymptoms(symptoms, diseases);
-      const entry: AssessmentHistoryEntry = {
-        id: crypto.randomUUID(),
-        timestamp: new Date().toISOString(),
-        patientHashId: identifier,
-        diagnoses: result.slice(0, 5).map(({ disease, probability }) => ({ name: disease.name, probability, icd11: disease.icd11Verified ? disease.icd11 : 'Unverified' })),
-        prescribedAntibiotic: null,
-        signatureStatus: 'Not signed',
+      const matchesForSymptoms = matchSymptoms(symptoms, initialDiseases);
+      const bestMatch = matchesForSymptoms[0];
+      const diagnosis = {
+        diseaseName: bestMatch?.disease.name ?? 'No matching signal',
+        icdCode: bestMatch?.disease.icd11 ?? 'UNVERIFIED',
+        matchPercentage: bestMatch?.probability ?? 0,
+        isRareDisease: bestMatch?.disease.rare ?? false,
+        symptoms,
+        prescribedDrug: null,
       };
-      setHistory((previous) => [entry, ...previous].slice(0, HISTORY_LIMIT));
-      if (result.length) {
-        setSelectedDisease(result[0].disease);
-        setSelectedProbability(result[0].probability);
+      const result = patient.patientId
+        ? await recordDiagnosisAction({
+          patientId: patient.patientId,
+          eGFR: patient.egfr,
+          hasPenicillinAlg,
+          ...diagnosis,
+        })
+        : await createPatientAction({
+          medicalRecordNum: patient.medicalRecordNum,
+          name: patient.rawName,
+          age: Number(patient.age),
+          gender: patient.gender || 'unknown',
+          eGFR: patient.egfr,
+          hasPenicillinAlg,
+          ...diagnosis,
+        });
+
+      if (!result.success) {
+        setPatientFieldErrors(result.fieldErrors ?? {});
+        setPatientSaveError(result.message);
+        return;
+      }
+
+      const savedPatient = result.patient;
+      const savedDiagnosis = savedPatient.diagnoses[0];
+      if (!savedDiagnosis) {
+        throw new Error('The saved patient has no linked diagnosis record.');
+      }
+
+      setSavedPatients((current) => [
+        savedPatient,
+        ...current.filter((item) => item.id !== savedPatient.id),
+      ]);
+      setPatient((current) => ({
+        ...current,
+        rawName: '',
+        hashedId: savedPatient.name,
+        patientId: savedPatient.id,
+        medicalRecordNum: savedPatient.medicalRecordNum,
+        symptomsRaw: symptoms,
+      }));
+      setPatientSaveError('');
+      setStorageError('');
+      setEvaluated(true);
+      const entry: AssessmentHistoryEntry = {
+        id: savedDiagnosis.id,
+        timestamp: savedDiagnosis.createdAt,
+        patientHashId: savedPatient.medicalRecordNum,
+        diagnoses: [{
+          name: savedDiagnosis.diseaseName,
+          probability: savedDiagnosis.matchPercentage,
+          icd11: savedDiagnosis.icdCode,
+        }],
+        prescribedAntibiotic: savedDiagnosis.prescribedDrug,
+        signatureStatus: savedDiagnosis.digitalSignature ? 'Demo signature confirmed' : 'Not signed',
+      };
+      setHistory((previous) => [entry, ...previous.filter((item) => item.id !== entry.id)].slice(0, HISTORY_LIMIT));
+      if (bestMatch) {
+        setSelectedDisease(bestMatch.disease);
+        setSelectedProbability(bestMatch.probability);
       } else {
         setSelectedDisease(null);
         setSelectedProbability(0);
       }
     } catch (error) {
-      setStorageError(error instanceof Error ? `Pseudonym generation failed: ${error.message}` : 'Pseudonym generation failed.');
+      setPatientSaveError(error instanceof Error ? error.message : 'Patient assessment could not be saved.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const evaluate = () => void runEvaluation(patient.symptomsRaw, patient.rawName);
+  const evaluate = () => void runEvaluation(patient.symptomsRaw);
 
   const loadPreset = (key: string) => {
     const preset = presets[key];
     if (!preset) return;
-    const disease = diseases.find((item) => item.id === preset.diseaseId);
-    void runEvaluation(preset.text, '');
+    const disease = initialDiseases.find((item) => item.id === preset.diseaseId);
+    setPatient((current) => ({ ...current, symptomsRaw: preset.text }));
+    setEvaluated(false);
     if (disease) {
       setSelectedDisease(disease);
-      setSelectedProbability(matchSymptoms(preset.text, diseases).find((item) => item.disease.id === disease.id)?.probability ?? 0);
+      setSelectedProbability(matchSymptoms(preset.text, initialDiseases).find((item) => item.disease.id === disease.id)?.probability ?? 0);
     }
   };
 
-  const signDemo = () => {
-    if (!selectedDisease) return;
-    setHistory((previous) => {
-      if (previous[0]?.patientHashId === patient.hashedId) {
-        return previous.map((entry, index) => index === 0 ? {
-          ...entry,
-          prescribedAntibiotic: selectedDisease.therapies[0]?.name ?? null,
-          signatureStatus: 'Demo signature confirmed',
-        } : entry);
-      }
-      return [{
-        id: crypto.randomUUID(),
-        timestamp: new Date().toISOString(),
-        patientHashId: patient.hashedId || `PAT-${crypto.randomUUID().split('-').join('').slice(0, 8).toUpperCase()}-${new Date().getFullYear()}`,
-        diagnoses: [{ name: selectedDisease.name, probability: selectedProbability, icd11: selectedDisease.icd11Verified ? selectedDisease.icd11 : 'Unverified' }],
-        prescribedAntibiotic: selectedDisease.therapies[0]?.name ?? null,
-        signatureStatus: 'Demo signature confirmed' as const,
-      }, ...previous].slice(0, HISTORY_LIMIT);
+  const selectSavedPatient = (savedPatient: PersistedPatient) => {
+    setPatient({
+      ...emptyPatient,
+      rawName: '',
+      hashedId: savedPatient.name,
+      patientId: savedPatient.id,
+      medicalRecordNum: savedPatient.medicalRecordNum,
+      age: String(savedPatient.age),
+      gender: savedPatient.gender,
+      egfr: savedPatient.eGFR,
+      allergies: savedPatient.hasPenicillinAlg ? ['penicillin'] : [],
     });
-    setSignatureConfirm(false);
+    setPatientFieldErrors({});
+    setPatientSaveError('');
+    setEvaluated(false);
+    setSelectedDisease(null);
+    setSelectedProbability(0);
+    setActiveTab('diagnosis');
   };
 
+  const startNewPatient = () => {
+    setPatient({ ...emptyPatient, medicalRecordNum: generateMedicalRecordNum() });
+    setPatientFieldErrors({});
+    setPatientSaveError('');
+    setEvaluated(false);
+    setSelectedDisease(null);
+    setSelectedProbability(0);
+  };
+
+  const removeSavedPatient = async (savedPatient: PersistedPatient) => {
+    if (!window.confirm(`Delete ${savedPatient.medicalRecordNum} and all of its diagnosis records? This cannot be undone.`)) return;
+    try {
+      const result = await deletePatientAction(savedPatient.id);
+      if (!result.success) {
+        setStorageError(result.message ?? 'Patient record could not be deleted.');
+        return;
+      }
+      setSavedPatients((current) => current.filter((item) => item.id !== savedPatient.id));
+      const deletedDiagnosisIds = new Set(savedPatient.diagnoses.map((diagnosis) => diagnosis.id));
+      setHistory((current) => current.filter((entry) => !deletedDiagnosisIds.has(entry.id)));
+      if (patient.patientId === savedPatient.id) {
+        setPatient({ ...emptyPatient, medicalRecordNum: generateMedicalRecordNum() });
+        setEvaluated(false);
+        setSelectedDisease(null);
+        setSelectedProbability(0);
+      }
+      setStorageError('');
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : 'Patient record could not be deleted.');
+    }
+  };
+
+  const signDemo = async () => {
+    if (!selectedDisease) return;
+    const currentAssessment = history.find((entry) => entry.patientHashId === patient.medicalRecordNum);
+    if (!patient.patientId || !currentAssessment) {
+      setSignatureError('Save an assessment for the selected patient before confirming a signature demonstration.');
+      return;
+    }
+
+    setIsSigning(true);
+    setSignatureError('');
+    try {
+      const result = await signDiagnosisAction({
+        diagnosisId: currentAssessment.id,
+        diseaseName: selectedDisease.name,
+        icdCode: selectedDisease.icd11,
+        matchPercentage: selectedProbability,
+        isRareDisease: selectedDisease.rare,
+        prescribedDrug: selectedDisease.therapies[0]?.name ?? null,
+      });
+      if (!result.success) {
+        setSignatureError(result.message);
+        return;
+      }
+
+      setHistory((previous) => previous.map((entry) => entry.id === result.diagnosis.id ? {
+        ...entry,
+        diagnoses: [{
+          name: result.diagnosis.diseaseName,
+          probability: result.diagnosis.matchPercentage,
+          icd11: result.diagnosis.icdCode,
+        }],
+        prescribedAntibiotic: result.diagnosis.prescribedDrug,
+        signatureStatus: 'Demo signature confirmed',
+      } : entry));
+      setSavedPatients((previous) => previous.map((savedPatient) => savedPatient.id === patient.patientId ? {
+        ...savedPatient,
+        diagnoses: savedPatient.diagnoses.map((diagnosis) => diagnosis.id === result.diagnosis.id ? result.diagnosis : diagnosis),
+      } : savedPatient));
+      setSignatureConfirm(false);
+    } catch (error) {
+      setSignatureError(error instanceof Error ? error.message : 'The signature demonstration could not be saved.');
+    } finally {
+      setIsSigning(false);
+    }
+  };
+
+  const currentPatientHistory = history.find((entry) => entry.patientHashId === patient.medicalRecordNum);
   const exportCurrent = () => {
     if (!selectedDisease) {
       window.alert('Run an assessment and select a finding before exporting a report.');
       return;
     }
-    printReport(selectedDisease, patient.hashedId, selectedProbability, patient.egfr, history[0]?.signatureStatus ?? 'Not signed');
+    printReport(selectedDisease, patient.hashedId, selectedProbability, patient.egfr, currentPatientHistory?.signatureStatus ?? 'Not signed');
   };
 
   return (
@@ -237,16 +404,16 @@ function App() {
             <h1 id="page-title" className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl">{tabContent[activeTab].title}</h1>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">{tabContent[activeTab].description}</p>
           </div>
-          <Badge variant="purple"><LockKeyhole size={12} className="mr-1" /> Local pseudonymization · No external AI calls</Badge>
+          <Badge variant="purple"><LockKeyhole size={12} className="mr-1" /> Server pseudonymization · No external AI calls</Badge>
         </section>
         <section role="note" className="flex gap-3 rounded-xl border border-purple-400/20 bg-purple-400/[0.04] p-4 text-xs leading-5 text-purple-100/80">
-          <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-purple-300" /><p><strong className="text-purple-200">Privacy and security demonstration.</strong> Patient names are converted to pseudonymous references before a local evaluation is recorded. SHA-256 is a one-way hash, not encryption; this prototype is not certified for HIPAA/PDP compliance and must not be used with real patient data. Browser storage is not encrypted.</p>
+          <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-purple-300" /><p><strong className="text-purple-200">Privacy and security demonstration.</strong> The server stores a keyed SHA-256 pseudonym instead of the entered name. Medical record numbers and symptoms are still sensitive data stored in PostgreSQL. This prototype is not certified for HIPAA/PDP compliance and must not be used with real patient data.</p>
         </section>
         {storageError && <div role="alert" className="rounded-lg border border-rose-400/30 bg-rose-400/10 p-3 text-xs text-rose-200"><ShieldAlert className="mr-2 inline h-4 w-4" />{storageError}</div>}
-        {activeTab === 'diagnosis' && <PatientDiagnosis patient={patient} setPatient={setPatient} matches={matches} onEvaluate={evaluate} onSelect={selectDiagnosis} onPreset={loadPreset} hasEvaluated={evaluated} />}
+        {activeTab === 'diagnosis' && <PatientDiagnosis patient={patient} setPatient={setPatient} matches={matches} onEvaluate={evaluate} onSelect={selectDiagnosis} onPreset={loadPreset} savedPatients={savedPatients} fieldErrors={patientFieldErrors} saveError={patientSaveError} isSaving={isSaving} onSelectPatient={selectSavedPatient} onDeletePatient={(savedPatient) => void removeSavedPatient(savedPatient)} onNewPatient={startNewPatient} hasEvaluated={evaluated} />}
         {activeTab === 'antibiotic' && <AntibioticChecker disease={selectedForSafety} patient={patient} onPatientChange={setPatient} />}
-        {activeTab === 'database' && <RareExplorer diseases={diseases} onSelect={openDisease} />}
-        {activeTab === 'history' && <AuditHistory entries={history} onClear={() => setHistory([])} />}
+        {activeTab === 'database' && <RareExplorer diseases={initialDiseases} onSelect={openDisease} />}
+        {activeTab === 'history' && <AuditHistory entries={history} />}
         <footer className="border-t border-slate-800 pt-4 text-[10px] leading-5 text-slate-600"><Activity className="mr-1 inline h-3 w-3" />AegisMed AI is a software demonstration. It does not provide medical advice, diagnose disease, transmit prescriptions, or establish regulatory compliance. Codes and therapies require independent verification.</footer>
       </main>
 
@@ -261,12 +428,12 @@ function App() {
               const conflicts = therapy.contraindications.filter((allergy) => patient.allergies.includes(allergy));
               return <article key={therapy.id} className="rounded-xl border border-slate-800 bg-[#0b0f19] p-3"><div className="flex flex-wrap justify-between gap-2"><h4 className="text-xs font-semibold text-white">{therapy.name}</h4><Badge variant={conflicts.length ? 'danger' : 'cyan'}>{conflicts.length ? 'Potential allergy conflict' : therapy.status}</Badge></div><p className="mt-2 text-[10px] leading-5 text-slate-400">{therapy.note}</p><p className="mt-1 text-[10px] text-slate-500">{therapy.baseDose} {patient.egfr < 30 ? therapy.renalDoseBelow30 : ''}</p></article>;
             })}</div> : <p className="text-xs text-slate-400">No antibiotic therapy is listed for this condition.</p>}</Card>
-            <div className="flex flex-wrap justify-end gap-2"><Button type="button" onClick={() => printReport(selectedDisease, patient.hashedId, selectedProbability, patient.egfr, history[0]?.signatureStatus ?? 'Not signed')}><FileDown size={14} /> Print / export</Button><Button type="button" variant="primary" onClick={() => setSignatureConfirm(true)}>Select & sign demo prescription</Button></div>
+            <div className="flex flex-wrap justify-end gap-2"><Button type="button" onClick={() => printReport(selectedDisease, patient.hashedId, selectedProbability, patient.egfr, currentPatientHistory?.signatureStatus ?? 'Not signed')}><FileDown size={14} /> Print / export</Button><Button type="button" variant="primary" onClick={() => { setSignatureError(''); setSignatureConfirm(true); }}>Select & sign demo prescription</Button></div>
             <p className="text-[10px] leading-4 text-slate-500">Digital signing is simulated only. No prescription is transmitted, and a qualified prescriber must independently determine care.</p>
           </div>
         </Modal>
       )}
-      {signatureConfirm && selectedDisease && <Modal isOpen={true} onClose={() => setSignatureConfirm(false)} title="Confirm demo signature" ><div className="space-y-4"><p className="text-sm leading-6 text-slate-300">This action records a demonstration status in local history only. It does not create or transmit a legal prescription.</p><div className="flex justify-end gap-2"><Button type="button" onClick={() => setSignatureConfirm(false)}>Cancel</Button><Button type="button" variant="primary" onClick={signDemo}>Confirm demo signature</Button></div></div></Modal>}
+      {signatureConfirm && selectedDisease && <Modal isOpen={true} onClose={() => { if (!isSigning) setSignatureConfirm(false); }} title="Confirm demo signature" ><div className="space-y-4"><p className="text-sm leading-6 text-slate-300">This saves a demo HMAC-SHA-256 signature for the selected assessment. It is not a legal prescription or a clinician identity signature.</p>{signatureError && <p role="alert" className="text-sm text-rose-200">{signatureError}</p>}<div className="flex justify-end gap-2"><Button type="button" disabled={isSigning} onClick={() => setSignatureConfirm(false)}>Cancel</Button><Button type="button" variant="primary" isLoading={isSigning} loadingText="Saving signature…" onClick={() => void signDemo()}>Confirm demo signature</Button></div></div></Modal>}
       <span className="sr-only">eGFR safety setting currently {patient.egfr}. Patient name is never sent to an external AI engine.</span>
     </div>
   );

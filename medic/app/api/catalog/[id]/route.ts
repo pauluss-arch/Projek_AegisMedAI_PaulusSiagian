@@ -1,6 +1,7 @@
 // app/api/catalog/[id]/route.ts — REST API Handler untuk Item Spesifik
 import { NextRequest, NextResponse } from 'next/server';
 import db from '../../../../lib/db';
+import { requireApiSession } from '../../../../lib/api-auth';
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -8,6 +9,9 @@ type RouteContext = {
 
 // ── GET /api/catalog/[id] — Ambil satu item ─────────────────────────────────
 export async function GET(_req: NextRequest, { params }: RouteContext) {
+  const unauthorized = await requireApiSession();
+  if (unauthorized) return unauthorized;
+
   const { id } = await params;
   try {
     const item = await db.catalogItem.findUnique({ where: { id } });
@@ -29,6 +33,9 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
 
 // ── DELETE /api/catalog/[id] — Hapus item ────────────────────────────────────
 export async function DELETE(_req: NextRequest, { params }: RouteContext) {
+  const unauthorized = await requireApiSession();
+  if (unauthorized) return unauthorized;
+
   const { id } = await params;
   try {
     const existing = await db.catalogItem.findUnique({ where: { id } });
@@ -52,4 +59,3 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
     );
   }
 }
-
