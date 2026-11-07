@@ -62,6 +62,30 @@ export interface AuditLogEntry {
   signatureStatus: PrescriptionStatus;
 }
 
+export interface PersistedDiagnosisSummary {
+  id: string;
+  diseaseName: string;
+  icdCode: string;
+  matchPercentage: number;
+  isRareDisease: boolean;
+  prescribedDrug: string | null;
+  digitalSignature: string | null;
+  createdAt: string;
+}
+
+export interface PersistedPatient {
+  id: string;
+  medicalRecordNum: string;
+  name: string;
+  age: number;
+  gender: Exclude<PatientGender, ''>;
+  eGFR: number;
+  hasPenicillinAlg: boolean;
+  createdAt: string;
+  updatedAt: string;
+  diagnoses: PersistedDiagnosisSummary[];
+}
+
 export type TherapyOption = AntibioticGuideline;
 export type Disease = DiseaseRecord;
 export type DiagnosisMatch = MatchResult;

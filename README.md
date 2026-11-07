@@ -55,67 +55,102 @@
 ## 🚀 3. Fitur Utama
 
 1. **Fuzzy Natural Language & Layman Symptom Matching:**
-   - Mampu mengekstrak kata kunci medis dari masukan kalimat biasa, bahasa awam, maupun typo pasien (misal: *"extrem headache"*, *"menceret"*, *"pusing banget"*) serta mengabaikan *stop-words*[cite: 3].
+   - Mampu mengekstrak kata kunci medis dari masukan kalimat biasa, bahasa awam, maupun typo pasien (misal: *"extrem headache"*, *"menceret"*, *"pusing banget"*) serta mengabaikan *stop-words*.
 2. **AI Diagnosis & Interactive Diagnostic Cards:**
-   - Kartu hasil *differential diagnosis* bertema *Dark Mode* yang dapat diklik (*clickable*) untuk membuka modal detail[cite: 1, 3].
-   - Penjelasan penyakit ramah pasien (non-teknis) beserta tanda bahaya (*red flags*)[cite: 3].
+   - Kartu hasil *differential diagnosis* bertema *Dark Mode* yang dapat diklik (*clickable*) untuk membuka modal detail.
+   - Penjelasan penyakit ramah pasien (non-teknis) beserta tanda bahaya (*red flags*).
 3. **Smart Antibiotic Stewardship Verification:**
-   - Pencocokan antibiotik teruji klinis berdasarkan patogen dan indikasi[cite: 3].
-   - Penyesuaian dosis otomatis berdasarkan slider fungsi ginjal pasien (eGFR) dan centang alergi penisilin/sulfa[cite: 3].
+   - Pencocokan antibiotik teruji klinis berdasarkan patogen dan indikasi.
+   - Penyesuaian dosis otomatis berdasarkan slider fungsi ginjal pasien (eGFR) dan centang alergi penisilin/sulfa.
 4. **Rare Disease Knowledge Explorer (Tab 3):**
-   - Katalog dan pencarian real-time 12+ penyakit langka berbasis kode ICD-11 dan pola gejala klinis (*symptom signals*)[cite: 3].
+   - Katalog dan pencarian real-time 12+ penyakit langka berbasis kode ICD-11 dan pola gejala klinis (*symptom signals*).
 5. **PDF Export / Print-Ready Medical Report Generator:**
-   - Menyediakan fungsi cetak/ekspor resume medis lengkap dengan identitas terenkripsi dan status tanda tangan digital[cite: 3].
-6. **Audit History Log & LocalStorage Sync (Tab 4):**
-   - Merekam riwayat evaluasi diagnostik yang tersinkronisasi otomatis dengan `localStorage` browser agar data tidak hilang saat *refresh*[cite: 3].
+   - Menyediakan fungsi cetak/ekspor resume medis lengkap dengan identitas terenkripsi dan status tanda tangan digital.
+6. **Audit History Log & PostgreSQL Persistence (Tab 4):**
+   - Merekam pasien dan hasil evaluasi di PostgreSQL; data dapat dibaca kembali setelah *refresh* dan dihapus bersama diagnosis terkait.
 7. **Visual Match Score Analytics Bar:**
-   - Bilah grafik progresi visual untuk persentase probabilitas hasil diagnosis[cite: 3].
+   - Bilah grafik progresi visual untuk persentase probabilitas hasil diagnosis.
 8. **Quick Clinical Presets:**
-   - Tombol satu-klik untuk memuat skenario klinis langsung (misal: *"Load CAP Pneumonia"*, *"Load UTI"*, *"Load Rare Fabry Crisis"*)[cite: 3].
+   - Tombol satu-klik untuk memuat skenario klinis langsung (misal: *"Load CAP Pneumonia"*, *"Load UTI"*, *"Load Rare Fabry Crisis"*).
 
 ---
 
 ## 🛠️ 4. Teknologi yang Digunakan
 
-* **Framework Utama:** React 18+ (Vite)
+* **Framework Utama:** Next.js 16 App Router dengan React 19
 * **Bahasa Pemrograman:** TypeScript
-* **Styling & UI:** Tailwind CSS (Dark Mode Aesthetic / Medical Cyberpunk)[cite: 1, 2]
-* **Aksesibilitas (a11y):** HTML5 Semantik, atribut ARIA (`aria-invalid`), label eksplisit `htmlFor`, dan kontras warna WCAG 2.1 AA[cite: 3].
-* **Kriptografi:** Web Crypto API / Node `crypto` (SHA-256, AES-256-GCM)[cite: 3].
+* **Styling & UI:** Tailwind CSS (Dark Mode Aesthetic / Medical Cyberpunk)
+* **Aksesibilitas (a11y):** HTML5 Semantik, atribut ARIA (`aria-invalid`), label eksplisit `htmlFor`, dan kontras warna WCAG 2.1 AA.
+* **Kriptografi:** Web Crypto API / Node `crypto` (SHA-256, AES-256-GCM).
 
 ---
 
-## 📁 5. Struktur Folder Proyek & Mock Data (Persiapan Database MS2)
+## 📁 5. Struktur Folder Proyek & Data
 
-Mock data disimpan secara terstruktur di `src/mock/diseasesData.ts` sebagai simulasi database sebelum integrasi backend pada Milestone 2[cite: 3]:
+`src/mock/diseasesData.ts` menjadi data sumber seed untuk katalog referensi sintetis. Workspace membaca katalog dan catatan pasien dari PostgreSQL; data preferensi non-identitas (eGFR dan alergi untuk sesi lokal) tetap disimpan di browser:
 
 ```text
 medic/
-├── dist/                        # Hasil build produksi aplikasi
-├── docs/                        # Dokumentasi pendukung & bukti audit
-│   └── lighthouse.png           # Bukti pengujian aksesibilitas Lighthouse
-├── security/                    # Artefak Keamanan Komputasi dan Siber
-│   └── THREAT_MODEL.md          # Threat Modeling STRIDE, DFD, & Risk Assessment (sec-0.1)
-├── src/                         # Source code utama aplikasi
-│   ├── components/              # Komponen UI Reusable (Button, Card, Badge, Modal, Input)
-│   │   └── Layout/              # Navbar & Sidebar
-│   ├── crypto/                  # Modul & Unit Testing Kriptografi
-│   │   ├── patientCrypto.ts     # Implementasi SHA-256, AES-256-GCM, & CSPRNG
-│   │   └── patientCrypto.test.ts# Skenario Uji Otomatis (Unit Test + Negative Test)
-│   ├── mock/                    # Data sintetis / mock data (Persiapan MS2)
-│   │   └── diseasesData.ts      # Database penyakit ICD-11 & dosis antibiotik
-│   ├── pages/                   # Halaman/Tab tampilan utama
-│   │   ├── PatientDiagnosis.tsx
-│   │   ├── AntibioticChecker.tsx
-│   │   ├── RareExplorer.tsx
-│   │   └── AuditHistory.tsx
-│   ├── utils/                   # Fuzzy Natural Language Symptom Matcher
-│   ├── App.tsx                  # Root Application Component
-│   ├── index.css                # Custom scrollbar styling & Tailwind imports
-│   └── main.tsx                 # Entry point React
-├── public/                      # Aset statis publik
-├── package.json                 # Dependensi & skrip proyek
-└── vite.config.ts               # Konfigurasi Vite
+├── app/
+│   ├── about/                   # Informasi produk
+│   ├── assessments/[id]/        # Detail riwayat pemeriksaan PostgreSQL
+│   ├── clinical-tools/          # Direktori fitur klinis AegisMed
+│   ├── layout.tsx               # Root layout, metadata, dan navigasi
+│   └── page.tsx                 # Workspace utama
+├── src/
+│   ├── components/              # Komponen UI bersama
+│   ├── crypto/                  # Pseudonimisasi, enkripsi, dan pengujian
+│   ├── features/                # Diagnosis, stewardship, referensi, dan riwayat
+│   ├── mock/                    # Sumber seed katalog penyakit sintetis
+│   ├── utils/                   # Pencocokan gejala dan preferensi lokal
+│   └── App.tsx                  # Interaksi workspace utama
+├── docs/                        # Dokumentasi dan bukti audit
+├── security/                    # Threat model
+├── package.json                 # Dependensi dan skrip proyek
+└── next.config.ts               # Konfigurasi Next.js dan redirect URL lama
+│   ├── page.tsx
+│   ├── layout.tsx
+│   └── assessments/
+│       └── [id]/
+│           └── page.tsx
+├── src/
+│   ├── App.tsx
+│   ├── components/
+│   │   ├── Layout/
+│   │   │   └── Navbar.tsx
+│   │   └── UI/
+│   │       ├── Button.tsx
+│   │       ├── Card.tsx
+│   │       ├── Input.tsx
+│   │       ├── Modal.tsx
+│   │       ├── Badge.tsx
+│   │       ├── Icons.tsx
+│   │       └── Textarea.tsx
+│   ├── features/
+│   │   ├── diagnosis/
+│   │   ├── antibiotic-checker/
+│   │   ├── audit-history/
+│   │   └── rare-disease-explorer/
+│   ├── crypto/
+│   ├── mock/
+│   │   └── diseasesData.ts
+│   ├── types/
+│   │   └── index.ts
+│   ├── utils/
+│   │   ├── symptomMatcher.ts
+│   │   └── assessmentStorage.ts
+│   └── index.css
+├── docs/
+│   └── dokumentasi dan screenshot pengujian
+├── security/
+│   └── THREAT_MODEL.md
+├── package.json
+├── package-lock.json
+├── tsconfig.json
+├── next.config.ts
+├── postcss.config.js
+├── tailwind.config.js
+└── .gitignore
 ```
 
 # 💻 6. Petunjuk Menjalankan Proyek & Pengujian
@@ -140,14 +175,14 @@ medic/
    npm run dev
    ```
 
-4. **Akses di Browser:** Buka `http://localhost:5173`.
+4. **Akses di Browser:** Buka `http://localhost:3000`.
 
 ## B. Menjalankan Uji Otomatis Kriptografi (Unit Test)
 
 Jalankan perintah berikut untuk mengeksekusi skenario uji otomatis:
 
 ```bash
-npx tsx src/crypto/patientCrypto.test.ts
+npm test
 ```
 
 ---
@@ -203,5 +238,24 @@ npm run test:crypto
 npx tsx src/crypto/patientCrypto.test.ts
 ```
 
+---
 
+## Milestone 2 (v0.2) — PostgreSQL persistence
 
+The Next.js App Router stores patient assessment records in PostgreSQL with Prisma 7. From `medic`, copy `.env.example` to `.env`, set `DATABASE_URL` to your PostgreSQL connection string, and configure `SESSION_SECRET` to a random secret of at least 32 bytes. Keep `.env` private.
+
+Run these commands from the `medic` directory:
+
+```bash
+npx prisma migrate dev --name init_v0.2
+npx prisma generate
+npx prisma db seed
+```
+
+The seed is idempotent and inserts synthetic disease-reference entries and one synthetic patient. Patient names entered through the assessment form are stored as keyed HMAC-SHA-256 pseudonyms; raw names are not persisted. SHA-256/HMAC pseudonymization is not encryption. Use synthetic data only: this demonstration is not certified for clinical use or regulatory compliance.
+
+For an existing database where `catalog_items` already exists but its baseline migration is not recorded, back up the database and mark that baseline applied before migrating:
+
+```bash
+npx prisma migrate resolve --applied 20261107164000_baseline_catalog
+```

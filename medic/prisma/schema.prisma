@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Patient {
+  id               String            @id @default(uuid()) @db.Uuid
+  medicalRecordNum String            @unique
+  name             String
+  age              Int
+  gender           String            @default("unknown")
+  eGFR             Float             @default(90.0)
+  hasPenicillinAlg Boolean           @default(false)
+  diagnoses        DiagnosisRecord[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+}
+
+model DiagnosisRecord {
+  id               String   @id @default(uuid()) @db.Uuid
+  patientId        String   @db.Uuid
+  patient          Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  diseaseName      String
+  icdCode          String
+  matchPercentage  Float
+  isRareDisease    Boolean  @default(false)
+  symptomsInput    String   @db.Text
+  prescribedDrug   String?
+  digitalSignature String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([patientId, createdAt])
+}
+
+model CatalogItem {
+  id         String   @id @default(cuid())
+  judul      String
+  deskripsi  String
+  aktif      Boolean  @default(true)
+  kategori   String   @default("Clinical")
+  dibuatOleh String   @default("Tim Medis")
+  catatan    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("catalog_items")
+}
+
+model DiseaseCatalogItem {
+  id        String   @id
+  name      String
+  category  String
+  icd11     String
+  rare      Boolean  @default(false)
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([rare, category])
+  @@map("disease_catalog_items")
+}

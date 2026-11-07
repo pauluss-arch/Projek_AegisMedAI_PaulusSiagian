@@ -17,3 +17,12 @@ Dokumen ini mencatat penggunaan bantuan kecerdasan buatan (AI) dalam perencanaan
 * **Model AI:** Gemini
 * **Tujuan Penggunaan:** Merancang Threat Modeling STRIDE, DFD dengan Trust Boundary, serta analisis 5 risiko prioritas untuk produk AegisMed AI.
 * **Pernyataan Keamanan:** Tidak ada kredensial, token privat, atau data medis pasien asli yang diunggah. Seluruh data yang dianalisis bersifat sintetis.
+
+## Pembaruan: Modul AEAD AES-256-GCM
+* **Tanggal:** 7 November 2026
+* **AI Tool:** Copilot SDK in VS Code
+* **Tujuan:** Mengimplementasikan enkripsi terautentikasi AES-256-GCM untuk data sintetis, validasi payload, AAD, serta pengujian negatif fail-closed.
+* **Ringkasan prompt:** Membuat modul AEAD Node.js, test round-trip dan tampering, ADR keputusan kriptografi, dan log penggunaan AI.
+* **Bagian yang dibuat/diperbarui:** `src/crypto/aeadCrypto.ts`, `src/crypto/aeadCrypto.test.ts`, `KEPUTUSAN.md`, dan bagian pembaruan dokumen ini.
+* **Verifikasi:** `npm test`, `npx tsc --noEmit`, dan `npm run build`.
+* **Pernyataan keamanan:** Perubahan ini tidak menambahkan private key, token, password, secret, atau data pasien nyata ke repositori. Key fixture dan plaintext pengujian bersifat sintetis; deployment key harus disediakan di luar Git melalui environment/secret manager.

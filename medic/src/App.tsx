@@ -11,13 +11,17 @@ import { AntibioticChecker } from './features/AntibioticChecker';
 import { AuditHistory } from './features/AuditHistory';
 import { PatientDiagnosis } from './features/PatientDiagnosis';
 import { RareExplorer } from './features/RareExplorer';
-import { createPatientPseudonym } from './crypto/patientCrypto';
-import { diseases } from './mock/diseasesData';
-import type { AllergyKey, AssessmentHistoryEntry, DiagnosisMatch, Disease, PatientState, TabId, TherapyOption } from './types';
-import { HISTORY_LIMIT, migrateHistory, STORAGE_KEY } from './utils/assessmentStorage';
+import {
+  createPatientAction,
+  deletePatientAction,
+  signDiagnosisAction,
+  updatePatientAction,
+} from '../app/actions/patientActions';
+import type { AllergyKey, AssessmentHistoryEntry, DiagnosisMatch, Disease, PatientState, PersistedPatient, TabId, TherapyOption } from './types';
+import { STORAGE_KEY } from './utils/assessmentStorage';
 import { matchSymptoms } from './utils/symptomMatcher';
 
-type StoredState = { egfr: number; allergies: AllergyKey[]; patientId: string; history: AssessmentHistoryEntry[] };
+type StoredState = { egfr: number; allergies: AllergyKey[]; patientId: string };
 const emptyPatient: PatientState = {
   rawName: '',
   hashedId: '',
@@ -32,6 +36,24 @@ const presets: Record<string, { text: string; diseaseId: string }> = {
   uti: { text: 'Painful urination, urinary urgency and frequency, burning when passing urine.', diseaseId: 'uti' },
   fabry: { text: 'Burning pain in hands and feet, reduced sweating, angiokeratomas, and a family history of kidney or heart disease.', diseaseId: 'fabry' },
   gbs: { text: 'Progressive weakness ascending from the legs, tingling in both feet, and reduced reflexes after a recent infection.', diseaseId: 'gbs' },
+};
+const tabContent: Record<TabId, { title: string; description: string }> = {
+  diagnosis: {
+    title: 'Patient assessment',
+    description: 'Explore a structured differential from the clinical picture, with clear reasoning and next steps.',
+  },
+  antibiotic: {
+    title: 'Antibiotic safety',
+    description: 'Review antimicrobial considerations alongside allergies and patient-specific safety factors.',
+  },
+  database: {
+    title: 'Rare disease explorer',
+    description: 'Explore reference information for uncommon diseases and their associated clinical findings.',
+  },
+  history: {
+    title: 'Audit history',
+    description: 'Review patient assessments and linked decision-support records stored in PostgreSQL.',
+  },
 };
 
 function printReport(disease: Disease, patientId: string, probability: number, egfr: number, signatureStatus: string) {
@@ -76,16 +98,43 @@ function printReport(disease: Disease, patientId: string, probability: number, e
   reportWindow.print();
 }
 
-function App() {
+function App({ initialPatients, diseases }: { initialPatients: PersistedPatient[]; diseases: Disease[] }) {
   const [activeTab, setActiveTab] = useState<TabId>('diagnosis');
   const [patient, setPatient] = useState<PatientState>(emptyPatient);
-  const [history, setHistory] = useState<AssessmentHistoryEntry[]>([]);
+  const [patients, setPatients] = useState(initialPatients);
+  const [activePatientId, setActivePatientId] = useState<string | null>(null);
+  const [activeDiagnosisId, setActiveDiagnosisId] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[] | undefined>>({});
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [isSavingSafety, setIsSavingSafety] = useState(false);
   const [storageReady, setStorageReady] = useState(false);
   const [storageError, setStorageError] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
   const [evaluated, setEvaluated] = useState(false);
   const [selectedDisease, setSelectedDisease] = useState<Disease | null>(null);
   const [selectedProbability, setSelectedProbability] = useState(0);
   const [signatureConfirm, setSignatureConfirm] = useState(false);
+  const history = useMemo<AssessmentHistoryEntry[]>(() => patients.map((record) => ({
+    id: record.id,
+    timestamp: record.diagnoses[0]?.createdAt ?? record.createdAt,
+    patientHashId: record.medicalRecordNum,
+    diagnoses: record.diagnoses.map((diagnosis) => ({
+      name: diagnosis.diseaseName,
+      probability: diagnosis.matchPercentage,
+      icd11: diagnosis.icdCode,
+    })),
+    prescribedAntibiotic: record.diagnoses.find((diagnosis) => diagnosis.prescribedDrug)?.prescribedDrug ?? null,
+    signatureStatus: record.diagnoses.some((diagnosis) => diagnosis.digitalSignature)
+      ? 'Demo signature confirmed'
+      : 'Not signed',
+  })), [patients]);
+
+  useEffect(() => {
+    const requestedTab = new URLSearchParams(window.location.search).get('tab');
+    const availableTabs: TabId[] = ['diagnosis', 'antibiotic', 'database', 'history'];
+    const initialTab = availableTabs.find((tab) => tab === requestedTab);
+    if (initialTab) setActiveTab(initialTab);
+  }, []);
 
   useEffect(() => {
     try {
@@ -94,14 +143,13 @@ function App() {
         const stored = JSON.parse(raw) as Partial<StoredState>;
         setPatient((current) => ({
           ...current,
-          egfr: typeof stored.egfr === 'number' && stored.egfr >= 5 && stored.egfr <= 120 ? stored.egfr : current.egfr,
+          egfr: typeof stored.egfr === 'number' && stored.egfr >= 5 && stored.egfr <= 150 ? stored.egfr : current.egfr,
           allergies: Array.isArray(stored.allergies) ? stored.allergies.filter((value): value is AllergyKey => ['penicillin', 'sulfa', 'macrolide'].includes(value)) : current.allergies,
-          hashedId: typeof stored.patientId === 'string' && /^PAT-[A-F0-9]{8}-\d{4}$/.test(stored.patientId) ? stored.patientId : current.hashedId,
+          hashedId: typeof stored.patientId === 'string' && /^PAT-[A-F0-9]{64}$/.test(stored.patientId) ? stored.patientId : current.hashedId,
         }));
-        setHistory(migrateHistory(stored.history));
       }
     } catch {
-      setStorageError('Local preferences could not be read. The assessment remains available without restored history.');
+      setStorageError('Local preferences could not be read. The assessment remains available with database records.');
     } finally {
       setStorageReady(true);
     }
@@ -110,12 +158,12 @@ function App() {
   useEffect(() => {
     if (!storageReady) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ egfr: patient.egfr, allergies: patient.allergies, patientId: patient.hashedId, history } satisfies StoredState));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ egfr: patient.egfr, allergies: patient.allergies, patientId: patient.hashedId } satisfies StoredState));
       setStorageError('');
     } catch {
       setStorageError('Local browser storage is unavailable or full. Changes may not persist after this session.');
     }
-  }, [patient.egfr, patient.allergies, patient.hashedId, history, storageReady]);
+  }, [patient.egfr, patient.allergies, patient.hashedId, storageReady]);
 
   const matches = useMemo(() => evaluated ? matchSymptoms(patient.symptomsRaw, diseases) : [], [evaluated, patient.symptomsRaw]);
   const selectedForSafety = selectedDisease ?? matches[0]?.disease;
@@ -130,23 +178,39 @@ function App() {
   };
 
   const runEvaluation = async (symptoms: string, rawName: string) => {
-    if (!symptoms.trim()) return;
+    setFieldErrors({});
+    setStorageError('');
+    setStatusMessage('');
+    setIsEvaluating(true);
     try {
-      const identifier = rawName.trim()
-        ? await createPatientPseudonym(rawName)
-        : patient.hashedId || `PAT-${crypto.randomUUID().split('-').join('').slice(0, 8).toUpperCase()}-${new Date().getFullYear()}`;
-      setPatient((current) => ({ ...current, rawName: '', hashedId: identifier, symptomsRaw: symptoms }));
-      setEvaluated(true);
       const result = matchSymptoms(symptoms, diseases);
-      const entry: AssessmentHistoryEntry = {
-        id: crypto.randomUUID(),
-        timestamp: new Date().toISOString(),
-        patientHashId: identifier,
-        diagnoses: result.slice(0, 5).map(({ disease, probability }) => ({ name: disease.name, probability, icd11: disease.icd11Verified ? disease.icd11 : 'Unverified' })),
-        prescribedAntibiotic: null,
-        signatureStatus: 'Not signed',
-      };
-      setHistory((previous) => [entry, ...previous].slice(0, HISTORY_LIMIT));
+      const topMatch = result[0];
+      const saved = await createPatientAction({
+        name: rawName,
+        age: Number(patient.age),
+        gender: patient.gender || 'unknown',
+        eGFR: patient.egfr,
+        hasPenicillinAlg: patient.allergies.includes('penicillin'),
+        diseaseName: topMatch?.disease.name ?? 'Unclassified symptoms',
+        icdCode: topMatch
+          ? topMatch.disease.icd11Verified ? topMatch.disease.icd11 : `${topMatch.disease.icd11} · unverified`
+          : 'UNCLASSIFIED',
+        matchPercentage: topMatch?.probability ?? 0,
+        isRareDisease: topMatch?.disease.rare ?? false,
+        symptoms,
+        prescribedDrug: null,
+      });
+      if (!saved.success) {
+        setFieldErrors(saved.fieldErrors ?? {});
+        setStorageError(saved.message);
+        return;
+      }
+
+      setPatients((previous) => [saved.patient, ...previous.filter((item) => item.id !== saved.patient.id)]);
+      setActivePatientId(saved.patient.id);
+      setActiveDiagnosisId(saved.patient.diagnoses[0]?.id ?? null);
+      setPatient((current) => ({ ...current, rawName: '', hashedId: saved.patient.name, symptomsRaw: symptoms }));
+      setEvaluated(true);
       if (result.length) {
         setSelectedDisease(result[0].disease);
         setSelectedProbability(result[0].probability);
@@ -155,7 +219,9 @@ function App() {
         setSelectedProbability(0);
       }
     } catch (error) {
-      setStorageError(error instanceof Error ? `Pseudonym generation failed: ${error.message}` : 'Pseudonym generation failed.');
+      setStorageError(error instanceof Error ? error.message : 'Assessment could not be saved.');
+    } finally {
+      setIsEvaluating(false);
     }
   };
 
@@ -164,33 +230,89 @@ function App() {
   const loadPreset = (key: string) => {
     const preset = presets[key];
     if (!preset) return;
-    const disease = diseases.find((item) => item.id === preset.diseaseId);
-    void runEvaluation(preset.text, '');
-    if (disease) {
-      setSelectedDisease(disease);
-      setSelectedProbability(matchSymptoms(preset.text, diseases).find((item) => item.disease.id === disease.id)?.probability ?? 0);
+    setPatient((current) => ({ ...current, symptomsRaw: preset.text }));
+    setEvaluated(false);
+    setFieldErrors({});
+    setStorageError('');
+  };
+
+  const saveSafetyContext = async () => {
+    setStatusMessage('');
+    if (!activePatientId) {
+      setStorageError('Run and save an assessment before persisting its safety context.');
+      return;
+    }
+    setIsSavingSafety(true);
+    try {
+      const saved = await updatePatientAction({
+        id: activePatientId,
+        eGFR: patient.egfr,
+        hasPenicillinAlg: patient.allergies.includes('penicillin'),
+      });
+      if (!saved.success) {
+        setStorageError(saved.message);
+        return;
+      }
+      setPatients((previous) => previous.map((item) => item.id === saved.patient.id ? saved.patient : item));
+      setStorageError('');
+      setStatusMessage('Safety context saved to PostgreSQL.');
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : 'Safety context could not be saved.');
+    } finally {
+      setIsSavingSafety(false);
     }
   };
 
-  const signDemo = () => {
-    if (!selectedDisease) return;
-    setHistory((previous) => {
-      if (previous[0]?.patientHashId === patient.hashedId) {
-        return previous.map((entry, index) => index === 0 ? {
-          ...entry,
-          prescribedAntibiotic: selectedDisease.therapies[0]?.name ?? null,
-          signatureStatus: 'Demo signature confirmed',
-        } : entry);
+  const removePatient = async (id: string) => {
+    if (!window.confirm('Delete this patient record and all linked diagnoses? This cannot be undone.')) return;
+    setStatusMessage('');
+    try {
+      const result = await deletePatientAction(id);
+      if (!result.success) {
+        setStorageError(result.message);
+        return;
       }
-      return [{
-        id: crypto.randomUUID(),
-        timestamp: new Date().toISOString(),
-        patientHashId: patient.hashedId || `PAT-${crypto.randomUUID().split('-').join('').slice(0, 8).toUpperCase()}-${new Date().getFullYear()}`,
-        diagnoses: [{ name: selectedDisease.name, probability: selectedProbability, icd11: selectedDisease.icd11Verified ? selectedDisease.icd11 : 'Unverified' }],
-        prescribedAntibiotic: selectedDisease.therapies[0]?.name ?? null,
-        signatureStatus: 'Demo signature confirmed' as const,
-      }, ...previous].slice(0, HISTORY_LIMIT);
-    });
+      setPatients((previous) => previous.filter((item) => item.id !== id));
+      if (activePatientId === id) {
+        setActivePatientId(null);
+        setActiveDiagnosisId(null);
+      }
+      setStorageError('');
+      setStatusMessage('Patient record and linked diagnoses deleted.');
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : 'Patient record could not be deleted.');
+    }
+  };
+
+  const signDemo = async () => {
+    setStatusMessage('');
+    if (!selectedDisease || !activeDiagnosisId || !activePatientId) {
+      setStorageError('Save an assessment before recording a demo signature.');
+      return;
+    }
+    try {
+      const result = await signDiagnosisAction({
+        diagnosisId: activeDiagnosisId,
+        diseaseName: selectedDisease.name,
+        icdCode: selectedDisease.icd11Verified ? selectedDisease.icd11 : `${selectedDisease.icd11} · unverified`,
+        matchPercentage: selectedProbability,
+        isRareDisease: selectedDisease.rare,
+        prescribedDrug: selectedDisease.therapies[0]?.name ?? null,
+      });
+      if (!result.success) {
+        setStorageError(result.message);
+        return;
+      }
+      setPatients((previous) => previous.map((item) => item.id !== result.patientId ? item : {
+        ...item,
+        diagnoses: item.diagnoses.map((diagnosis) => diagnosis.id === result.diagnosis.id ? result.diagnosis : diagnosis),
+      }));
+      setStorageError('');
+      setStatusMessage('Demo signature recorded in PostgreSQL.');
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : 'Demo signature could not be recorded.');
+      return;
+    }
     setSignatureConfirm(false);
   };
 
@@ -209,19 +331,20 @@ function App() {
         <section aria-labelledby="page-title" className="flex flex-wrap items-end justify-between gap-4 py-2">
           <div>
             <Badge variant="cyan"><Activity size={11} className="mr-1" /> Clinical intelligence workspace</Badge>
-            <h1 id="page-title" className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl">{activeTab === 'diagnosis' ? 'Patient assessment' : activeTab === 'antibiotic' ? 'Antibiotic safety' : activeTab === 'database' ? 'Rare disease explorer' : 'Audit history'}</h1>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Explore a structured differential from the clinical picture, with clear reasoning and next steps.</p>
+            <h1 id="page-title" className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl">{tabContent[activeTab].title}</h1>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">{tabContent[activeTab].description}</p>
           </div>
-          <Badge variant="purple"><LockKeyhole size={12} className="mr-1" /> Local pseudonymization · No external AI calls</Badge>
+          <Badge variant="purple"><LockKeyhole size={12} className="mr-1" /> Server-side pseudonymization · No external AI calls</Badge>
         </section>
         <section role="note" className="flex gap-3 rounded-xl border border-purple-400/20 bg-purple-400/[0.04] p-4 text-xs leading-5 text-purple-100/80">
-          <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-purple-300" /><p><strong className="text-purple-200">Privacy and security demonstration.</strong> Patient names are converted to pseudonymous references before a local evaluation is recorded. SHA-256 is a one-way hash, not encryption; this prototype is not certified for HIPAA/PDP compliance and must not be used with real patient data. Browser storage is not encrypted.</p>
+          <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-purple-300" /><p><strong className="text-purple-200">Privacy and security demonstration.</strong> Patient names are converted to keyed HMAC-SHA-256 pseudonyms before storage; the submitted name is not saved. Pseudonymization is not encryption, and this prototype is not certified for HIPAA/PDP compliance. Use synthetic data only.</p>
         </section>
         {storageError && <div role="alert" className="rounded-lg border border-rose-400/30 bg-rose-400/10 p-3 text-xs text-rose-200"><ShieldAlert className="mr-2 inline h-4 w-4" />{storageError}</div>}
-        {activeTab === 'diagnosis' && <PatientDiagnosis patient={patient} setPatient={setPatient} matches={matches} onEvaluate={evaluate} onSelect={selectDiagnosis} onPreset={loadPreset} hasEvaluated={evaluated} />}
-        {activeTab === 'antibiotic' && <AntibioticChecker disease={selectedForSafety} patient={patient} onPatientChange={setPatient} />}
+        {statusMessage && <p role="status" className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 p-3 text-xs text-emerald-200">{statusMessage}</p>}
+        {activeTab === 'diagnosis' && <PatientDiagnosis patient={patient} setPatient={setPatient} matches={matches} onEvaluate={evaluate} onSelect={selectDiagnosis} onPreset={loadPreset} hasEvaluated={evaluated} fieldErrors={fieldErrors} isEvaluating={isEvaluating} isSavingSafety={isSavingSafety} onSaveSafetyContext={saveSafetyContext} />}
+        {activeTab === 'antibiotic' && <AntibioticChecker disease={selectedForSafety} patient={patient} onPatientChange={setPatient} onSaveSafetyContext={saveSafetyContext} isSavingSafety={isSavingSafety} />}
         {activeTab === 'database' && <RareExplorer diseases={diseases} onSelect={openDisease} />}
-        {activeTab === 'history' && <AuditHistory entries={history} onClear={() => setHistory([])} />}
+        {activeTab === 'history' && <AuditHistory entries={history} onDelete={removePatient} />}
         <footer className="border-t border-slate-800 pt-4 text-[10px] leading-5 text-slate-600"><Activity className="mr-1 inline h-3 w-3" />AegisMed AI is a software demonstration. It does not provide medical advice, diagnose disease, transmit prescriptions, or establish regulatory compliance. Codes and therapies require independent verification.</footer>
       </main>
 
@@ -241,7 +364,7 @@ function App() {
           </div>
         </Modal>
       )}
-      {signatureConfirm && selectedDisease && <Modal isOpen={true} onClose={() => setSignatureConfirm(false)} title="Confirm demo signature" ><div className="space-y-4"><p className="text-sm leading-6 text-slate-300">This action records a demonstration status in local history only. It does not create or transmit a legal prescription.</p><div className="flex justify-end gap-2"><Button type="button" onClick={() => setSignatureConfirm(false)}>Cancel</Button><Button type="button" variant="primary" onClick={signDemo}>Confirm demo signature</Button></div></div></Modal>}
+      {signatureConfirm && selectedDisease && <Modal isOpen={true} onClose={() => setSignatureConfirm(false)} title="Confirm demo signature" ><div className="space-y-4"><p className="text-sm leading-6 text-slate-300">This action records a keyed integrity marker in the database for demonstration only. It does not create or transmit a legal prescription.</p><div className="flex justify-end gap-2"><Button type="button" onClick={() => setSignatureConfirm(false)}>Cancel</Button><Button type="button" variant="primary" onClick={() => void signDemo()}>Confirm demo signature</Button></div></div></Modal>}
       <span className="sr-only">eGFR safety setting currently {patient.egfr}. Patient name is never sent to an external AI engine.</span>
     </div>
   );

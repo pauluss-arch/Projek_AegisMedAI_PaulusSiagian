@@ -15,36 +15,42 @@ type Props = {
   onSelect: (match: DiagnosisMatch) => void;
   onPreset: (key: string) => void;
   hasEvaluated: boolean;
+  fieldErrors: Record<string, string[] | undefined>;
+  isEvaluating: boolean;
+  isSavingSafety: boolean;
+  onSaveSafetyContext: () => void;
 };
 
 export function PatientDiagnosis(props: Props) {
-  const { patient, setPatient, matches, onEvaluate, onSelect, onPreset, hasEvaluated } = props;
+  const { patient, setPatient, matches, onEvaluate, onSelect, onPreset, hasEvaluated, fieldErrors, isEvaluating, isSavingSafety, onSaveSafetyContext } = props;
   const allergyLabels = [['penicillin', 'Penicillin / beta-lactam'], ['sulfa', 'Sulfonamide'], ['macrolide', 'Macrolide']] as const;
   return (
     <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
       <section className="space-y-5">
-        <Card title="Patient assessment" subtitle="Enter symptoms to create a local, illustrative differential.">
+        <Card title="Patient assessment" subtitle="Enter patient and symptom details to save an assessment to PostgreSQL.">
           <div className="space-y-4">
-            <Input id="patient-name" label="Patient name" autoComplete="off" value={patient.rawName} onChange={(e) => setPatient((current) => ({ ...current, rawName: e.target.value }))} placeholder="e.g. Jordan Lee" helperText="Converted locally to a pseudonymous ID on submission; the name is then cleared." />
+            <Input id="patient-name" label="Patient name" required autoComplete="off" value={patient.rawName} onChange={(e) => setPatient((current) => ({ ...current, rawName: e.target.value }))} placeholder="e.g. Jordan Lee" error={fieldErrors.name?.[0]} helperText="Converted to a keyed HMAC-SHA-256 pseudonym before storage; the submitted name is not saved." />
             <div className="grid grid-cols-2 gap-3">
-              <Input id="patient-age" label="Age (years)" type="number" min="0" max="120" value={patient.age} onChange={(e) => setPatient((current) => ({ ...current, age: e.target.value }))} placeholder="Years" />
+              <Input id="patient-age" label="Age (years)" required type="number" min="1" max="120" value={patient.age} onChange={(e) => setPatient((current) => ({ ...current, age: e.target.value }))} placeholder="Years" error={fieldErrors.age?.[0]} />
               <div><label htmlFor="patient-gender" className="mb-2 block text-xs font-semibold text-slate-300">Gender (optional)</label><select id="patient-gender" value={patient.gender} onChange={(e) => setPatient((current) => ({ ...current, gender: e.target.value as PatientState['gender'] }))} className="min-h-[42px] w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-xs text-slate-200 focus:border-cyan-400 focus:outline-none"><option value="">Not provided</option><option value="female">Female</option><option value="male">Male</option><option value="intersex">Intersex</option><option value="unknown">Unknown</option></select></div>
             </div>
-            <Textarea id="symptoms" label="Clinical symptoms" value={patient.symptomsRaw} onChange={(e) => setPatient((current) => ({ ...current, symptomsRaw: e.target.value }))} rows={5} placeholder="Describe the presenting symptoms, onset, duration, and relevant findings..." helperText="Matching is local to this browser; include symptoms in the patient's own words." />
+            <Textarea id="symptoms" label="Clinical symptoms" required value={patient.symptomsRaw} onChange={(e) => setPatient((current) => ({ ...current, symptomsRaw: e.target.value }))} rows={5} placeholder="Describe the presenting symptoms, onset, duration, and relevant findings..." error={fieldErrors.symptoms?.[0]} helperText="Matching is local to this browser; include symptoms in the patient's own words." />
             <div className="rounded-xl border border-slate-800 bg-[#0b0f19] p-3"><span className="text-[10px] font-semibold text-slate-400">Patient reference</span><p className="mt-1 break-all font-mono text-xs text-cyan-200">{patient.hashedId || 'Created after assessment'}</p></div>
             <div><div className="mb-2 text-xs font-semibold text-slate-300">Clinical presets</div><div className="flex flex-wrap gap-2">{[['cap', 'CAP pneumonia'], ['uti', 'UTI'], ['fabry', 'Fabry crisis'], ['gbs', 'GBS']].map(([key, label]) => <Button key={key} type="button" className="min-h-8 px-3 py-1 text-[11px]" onClick={() => onPreset(key)}>{label}</Button>)}</div></div>
-            <Button type="button" variant="primary" className="w-full" onClick={onEvaluate} disabled={!patient.symptomsRaw.trim()}><Search size={15} /> Generate differential <span aria-hidden="true">→</span></Button>
+            {fieldErrors.medicalRecordNum?.[0] && <p role="alert" className="text-xs text-rose-300">{fieldErrors.medicalRecordNum[0]}</p>}
+            <Button type="button" variant="primary" className="w-full" onClick={onEvaluate} isLoading={isEvaluating} loadingText="Saving assessment..."><Search size={15} /> Generate differential <span aria-hidden="true">→</span></Button>
           </div>
         </Card>
         <Card title="Safety context" subtitle="For demonstration only; not a dosing calculator.">
           <label htmlFor="egfr" className="mb-2 flex justify-between text-xs text-slate-300"><span>eGFR</span><strong className="text-cyan-200">{patient.egfr} mL/min/1.73m²</strong></label>
-          <input id="egfr" type="range" min="5" max="120" value={patient.egfr} onChange={(e) => setPatient((current) => ({ ...current, egfr: Number(e.target.value) }))} className="w-full accent-cyan-400" />
+          <input id="egfr" type="range" min="5" max="150" value={patient.egfr} onChange={(e) => setPatient((current) => ({ ...current, egfr: Number(e.target.value) }))} className="w-full accent-cyan-400" />
           <fieldset className="mt-4 space-y-2"><legend className="mb-2 text-xs font-semibold text-slate-300">Reported allergies</legend>{allergyLabels.map(([key, label]) => <label key={key} className="flex cursor-pointer items-center gap-2 text-xs text-slate-400"><input type="checkbox" checked={patient.allergies.includes(key)} onChange={() => setPatient((current) => ({ ...current, allergies: current.allergies.includes(key) ? current.allergies.filter((x) => x !== key) : [...current.allergies, key] }))} className="accent-cyan-400" />{label}</label>)}</fieldset>
+          <Button type="button" variant="secondary" className="mt-4 w-full" onClick={onSaveSafetyContext} isLoading={isSavingSafety} loadingText="Saving safety context...">Save safety context</Button>
         </Card>
       </section>
       <section aria-live="polite" className="space-y-5">
         <Card className="border-cyan-400/15 bg-gradient-to-br from-cyan-400/[0.06] to-slate-900">
-          <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">Decision support workspace</p><h2 className="mt-2 text-xl font-bold text-white">Differential overview</h2><p className="mt-1 text-xs leading-5 text-slate-400">Pattern matching is educational only and cannot diagnose, rule out, or recommend treatment.</p></div><Badge variant="cyan"><ShieldCheck size={12} className="mr-1" /> SHA-256 pseudonym · local demo</Badge></div>
+          <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">Decision support workspace</p><h2 className="mt-2 text-xl font-bold text-white">Differential overview</h2><p className="mt-1 text-xs leading-5 text-slate-400">Pattern matching is educational only and cannot diagnose, rule out, or recommend treatment.</p></div><Badge variant="cyan"><ShieldCheck size={12} className="mr-1" /> HMAC-SHA-256 pseudonym</Badge></div>
         </Card>
         {matches.length > 0 ? <div className="space-y-3">
           <div className="flex items-center justify-between"><h3 className="text-sm font-bold text-white">{hasEvaluated ? 'Potential matches' : 'Live symptom signals'}</h3><span className="text-[10px] text-slate-500">{matches.length} results</span></div>
