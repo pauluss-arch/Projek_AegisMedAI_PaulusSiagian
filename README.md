@@ -62,12 +62,12 @@
 3. **Smart Antibiotic Stewardship Verification:**
    - Pencocokan antibiotik teruji klinis berdasarkan patogen dan indikasi.
    - Penyesuaian dosis otomatis berdasarkan slider fungsi ginjal pasien (eGFR) dan centang alergi penisilin/sulfa.
-4. **Disease Reference Library (Tab 3):**
-   - Katalog PostgreSQL dengan pencarian penyakit dan pola gejala; kode ICD-11 yang belum diverifikasi ditandai secara eksplisit.
+4. **Rare Disease Knowledge Explorer (Tab 3):**
+   - Katalog dan pencarian real-time 12+ penyakit langka berbasis kode ICD-11 dan pola gejala klinis (*symptom signals*).
 5. **PDF Export / Print-Ready Medical Report Generator:**
    - Menyediakan fungsi cetak/ekspor resume medis lengkap dengan identitas terenkripsi dan status tanda tangan digital.
-6. **Audit History Log & LocalStorage Sync (Tab 4):**
-   - Merekam riwayat evaluasi diagnostik yang tersinkronisasi otomatis dengan `localStorage` browser agar data tidak hilang saat *refresh*.
+6. **Audit History Log & PostgreSQL Persistence (Tab 4):**
+   - Merekam pasien dan hasil evaluasi di PostgreSQL; data dapat dibaca kembali setelah *refresh* dan dihapus bersama diagnosis terkait.
 7. **Visual Match Score Analytics Bar:**
    - Bilah grafik progresi visual untuk persentase probabilitas hasil diagnosis.
 8. **Quick Clinical Presets:**
@@ -85,15 +85,15 @@
 
 ---
 
-## 📁 5. Struktur Folder Proyek & Mock Data (Persiapan Database MS2)
+## 📁 5. Struktur Folder Proyek & Data
 
-Data referensi penyakit dikelola sebagai data seed di `medic/src/mock/diseasesData.ts` dan disimpan dalam tabel PostgreSQL `disease_catalog_items`. Aplikasi membaca katalog dari database; file TypeScript tersebut menjadi sumber seed yang dapat diperbarui dan di-upsert:
+`src/mock/diseasesData.ts` menjadi data sumber seed untuk katalog referensi sintetis. Workspace membaca katalog dan catatan pasien dari PostgreSQL; data preferensi non-identitas (eGFR dan alergi untuk sesi lokal) tetap disimpan di browser:
 
 ```text
 medic/
 ├── app/
 │   ├── about/                   # Informasi produk
-│   ├── assessments/[id]/        # Detail riwayat pemeriksaan lokal
+│   ├── assessments/[id]/        # Detail riwayat pemeriksaan PostgreSQL
 │   ├── clinical-tools/          # Direktori fitur klinis AegisMed
 │   ├── layout.tsx               # Root layout, metadata, dan navigasi
 │   └── page.tsx                 # Workspace utama
@@ -101,8 +101,8 @@ medic/
 │   ├── components/              # Komponen UI bersama
 │   ├── crypto/                  # Pseudonimisasi, enkripsi, dan pengujian
 │   ├── features/                # Diagnosis, stewardship, referensi, dan riwayat
-│   ├── mock/                    # Data penyakit dan referensi
-│   ├── utils/                   # Pencocokan gejala dan penyimpanan lokal
+│   ├── mock/                    # Sumber seed katalog penyakit sintetis
+│   ├── utils/                   # Pencocokan gejala dan preferensi lokal
 │   └── App.tsx                  # Interaksi workspace utama
 ├── docs/                        # Dokumentasi dan bukti audit
 ├── security/                    # Threat model
@@ -242,9 +242,9 @@ npx tsx src/crypto/patientCrypto.test.ts
 
 ## Milestone 2 (v0.2) — PostgreSQL persistence
 
-The Next.js app now stores patient records and their diagnosis history in PostgreSQL through Prisma 7. Copy `medic/.env.example` to `medic/.env`, set `DATABASE_URL` to your PostgreSQL connection string, and set `SESSION_SECRET` to a random secret of at least 32 bytes. Keep `.env` private.
+The Next.js App Router stores patient assessment records in PostgreSQL with Prisma 7. From `medic`, copy `.env.example` to `.env`, set `DATABASE_URL` to your PostgreSQL connection string, and configure `SESSION_SECRET` to a random secret of at least 32 bytes. Keep `.env` private.
 
-Run these commands from the `medic` project directory against a fresh database or one already managed by Prisma Migrate:
+Run these commands from the `medic` directory:
 
 ```bash
 npx prisma migrate dev --name init_v0.2
@@ -252,14 +252,10 @@ npx prisma generate
 npx prisma db seed
 ```
 
-If `catalog_items` already exists without migration history, back up the database and verify it matches the existing catalog schema. Then mark the included baseline as applied before running the commands above:
+The seed is idempotent and inserts synthetic disease-reference entries and one synthetic patient. Patient names entered through the assessment form are stored as keyed HMAC-SHA-256 pseudonyms; raw names are not persisted. SHA-256/HMAC pseudonymization is not encryption. Use synthetic data only: this demonstration is not certified for clinical use or regulatory compliance.
+
+For an existing database where `catalog_items` already exists but its baseline migration is not recorded, back up the database and mark that baseline applied before migrating:
 
 ```bash
 npx prisma migrate resolve --applied 20261107164000_baseline_catalog
 ```
-
-Do not run that baseline command against an empty database, and do not accept a reset prompt on a database containing data. The baseline records the existing catalog table without recreating it; the existing migrations add patient and diagnosis tables and the disease reference catalog.
-
-The seed upserts the disease reference entries and a synthetic patient and is safe to run more than once. Five additional starter entries cover dengue, leptospirosis, malaria, chikungunya, and hantavirus pulmonary syndrome. These are educational references, not diagnostic criteria or treatment guidance; ICD-11 values remain marked as unverified. Patient names entered through the assessment form are stored as keyed HMAC-SHA-256 pseudonyms using `SESSION_SECRET`; raw names are not persisted. Assessment symptoms and medical-record numbers remain sensitive data, so use synthetic data only. This demonstration is not certified for clinical use or regulatory compliance.
-
-Catalog and document API routes require the same signed-in session as the management pages. Confirming a demo prescription stores a domain-separated HMAC-SHA-256 integrity marker for the selected diagnosis; it is not a public-key signature, proof of clinician identity, or a legally valid prescription.

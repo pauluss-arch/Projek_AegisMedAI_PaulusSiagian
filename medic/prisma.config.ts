@@ -8,12 +8,11 @@ export default defineConfig({
   // Lokasi berkas skema deklaratif Prisma
   schema: "prisma/schema.prisma",
 
-  migrations: {
-    seed: "node prisma/seed.ts",
-  },
-
   // URL database PostgreSQL untuk CLI (prisma db push, prisma migrate, prisma studio)
   datasource: {
     url: env("DATABASE_URL"),
+  },
+  migrations: {
+    seed: "tsx prisma/seed.ts",
   },
 });

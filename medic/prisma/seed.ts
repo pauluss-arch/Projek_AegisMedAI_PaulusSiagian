@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Prisma, PrismaClient } from '@prisma/client';
-import { diseases } from '../src/mock/diseasesData.ts';
+import { diseases } from '../src/mock/diseasesData';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -47,7 +47,7 @@ try {
       hasPenicillinAlg: false,
       diagnoses: {
         create: {
-          diseaseName: 'Demo assessment — clinician review required',
+          diseaseName: 'Synthetic demonstration assessment',
           icdCode: 'UNVERIFIED',
           matchPercentage: 0,
           isRareDisease: false,

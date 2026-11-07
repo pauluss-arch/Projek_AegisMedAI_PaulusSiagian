@@ -6,7 +6,7 @@ import { Button } from '../UI/Button';
 const tabs: Array<{ id: TabId; label: string; icon: typeof Activity }> = [
   { id: 'diagnosis', label: 'AI Diagnosis', icon: Stethoscope },
   { id: 'antibiotic', label: 'Antibiotic Stewardship', icon: Shield },
-  { id: 'database', label: 'Disease Catalog', icon: Database },
+  { id: 'database', label: 'Rare Disease Explorer', icon: Database },
   { id: 'history', label: 'Audit history', icon: History },
 ];
 

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 const allergyKeySchema = z.enum(['penicillin', 'sulfa', 'macrolide']);
+
 const therapySchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -18,7 +19,7 @@ const therapySchema = z.object({
   note: z.string(),
 });
 
-export const diseaseRecordSchema = z.object({
+export const diseaseSchema = z.object({
   id: z.string(),
   name: z.string(),
   category: z.string(),

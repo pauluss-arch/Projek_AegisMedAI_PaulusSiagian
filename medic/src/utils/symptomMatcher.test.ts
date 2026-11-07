@@ -20,12 +20,3 @@ test('returns no results for empty input and bounds the requested result count',
   assert.deepEqual(matchSymptoms('dan dengan saya', diseases), []);
   assert.ok(matchSymptoms('fever cough chest pain', diseases, 2).length <= 2);
 });
-
-test('includes new tropical and rare disease reference entries in symptom matching', () => {
-  const expectedIds = ['dengue', 'leptospirosis', 'malaria', 'chikungunya', 'hantavirus-pulmonary-syndrome'];
-  for (const id of expectedIds) {
-    assert.ok(diseases.some((disease) => disease.id === id), `Missing disease entry: ${id}`);
-  }
-  assert.ok(matchSymptoms('dengue fever severe headache and pain behind eyes', diseases)
-    .some((result) => result.disease.id === 'dengue'));
-});

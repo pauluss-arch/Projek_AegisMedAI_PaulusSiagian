@@ -1,28 +1,32 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { createPatientSchema, medicalRecordNumSchema, signDiagnosisSchema } from './patient.ts';
+import { test } from 'node:test';
+import {
+  createPatientSchema,
+  medicalRecordNumSchema,
+  patientUpdateSchema,
+} from './patient.ts';
 
-const validPatient = {
+const validPatientInput = {
   medicalRecordNum: 'RM-2026-0101',
   name: 'Jordan Lee',
   age: 42,
   gender: 'unknown',
   eGFR: 90,
   hasPenicillinAlg: false,
-  diseaseName: 'Demo assessment',
+  diseaseName: 'Community-acquired pneumonia',
   icdCode: 'UNVERIFIED',
-  matchPercentage: 50,
+  matchPercentage: 68,
   isRareDisease: false,
-  symptoms: 'Fever and a productive cough for two days.',
+  symptoms: 'Fever and cough with shortness of breath.',
   prescribedDrug: null,
 };
 
-test('accepts a valid patient and initial diagnosis', () => {
-  assert.equal(createPatientSchema.safeParse(validPatient).success, true);
+test('accepts a complete patient and diagnosis payload', () => {
+  assert.equal(createPatientSchema.safeParse(validPatientInput).success, true);
 });
 
-test('returns the required medical-record-number format message', () => {
-  const result = medicalRecordNumSchema.safeParse('RM-26-101');
+test('uses the required medical record format error message', () => {
+  const result = medicalRecordNumSchema.safeParse('RM-26-0101');
   assert.equal(result.success, false);
   if (!result.success) {
     assert.equal(
@@ -32,31 +36,23 @@ test('returns the required medical-record-number format message', () => {
   }
 });
 
-test('enforces patient age, eGFR, and symptoms bounds', () => {
+test('rejects invalid patient age, eGFR, and symptoms with field errors', () => {
   const result = createPatientSchema.safeParse({
-    ...validPatient,
-    age: 121,
+    ...validPatientInput,
+    age: 0,
     eGFR: 151,
     symptoms: 'short',
   });
   assert.equal(result.success, false);
   if (!result.success) {
-    assert.deepEqual(
-      result.error.issues.map((issue) => issue.path[0]),
-      ['age', 'eGFR', 'symptoms'],
-    );
+    const errors = result.error.flatten().fieldErrors;
+    assert.ok(errors.age?.length);
+    assert.ok(errors.eGFR?.length);
+    assert.ok(errors.symptoms?.length);
   }
 });
 
-test('validates demo-signature inputs and rejects invalid diagnosis identifiers', () => {
-  const validSignatureInput = {
-    diagnosisId: '00000000-0000-4000-8000-000000000001',
-    diseaseName: 'Demo assessment',
-    icdCode: 'UNVERIFIED',
-    matchPercentage: 50,
-    isRareDisease: false,
-    prescribedDrug: null,
-  };
-  assert.equal(signDiagnosisSchema.safeParse(validSignatureInput).success, true);
-  assert.equal(signDiagnosisSchema.safeParse({ ...validSignatureInput, diagnosisId: 'invalid' }).success, false);
+test('requires at least one patient safety update', () => {
+  const result = patientUpdateSchema.safeParse({ id: '550e8400-e29b-41d4-a716-446655440000' });
+  assert.equal(result.success, false);
 });

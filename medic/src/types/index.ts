@@ -6,8 +6,6 @@ export type PrescriptionStatus = 'Not signed' | 'Demo signature confirmed';
 export interface PatientState {
   rawName: string;
   hashedId: string;
-  patientId: string;
-  medicalRecordNum: string;
   age: string;
   gender: PatientGender;
   egfr: number;
@@ -64,20 +62,6 @@ export interface AuditLogEntry {
   signatureStatus: PrescriptionStatus;
 }
 
-export type TherapyOption = AntibioticGuideline;
-export type Disease = DiseaseRecord;
-export type DiagnosisMatch = MatchResult;
-export type AssessmentHistoryEntry = AuditLogEntry;
-
-export type PatientDraft = PatientState;
-
-export interface UserPreferences {
-  egfr: number;
-  allergies: AllergyKey[];
-  patientId: string;
-  history: AssessmentHistoryEntry[];
-}
-
 export interface PersistedDiagnosisSummary {
   id: string;
   diseaseName: string;
@@ -102,7 +86,16 @@ export interface PersistedPatient {
   diagnoses: PersistedDiagnosisSummary[];
 }
 
-export interface PersistedDiagnosisRecord extends PersistedDiagnosisSummary {
-  symptomsInput: string;
-  patientMedicalRecordNum: string;
+export type TherapyOption = AntibioticGuideline;
+export type Disease = DiseaseRecord;
+export type DiagnosisMatch = MatchResult;
+export type AssessmentHistoryEntry = AuditLogEntry;
+
+export type PatientDraft = PatientState;
+
+export interface UserPreferences {
+  egfr: number;
+  allergies: AllergyKey[];
+  patientId: string;
+  history: AssessmentHistoryEntry[];
 }

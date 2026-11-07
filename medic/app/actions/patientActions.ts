@@ -1,30 +1,39 @@
 'use server';
 
-import { createHmac } from 'node:crypto';
+import { createHmac, randomInt } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import db from '../../lib/db';
 import { bacaSesi } from '../../lib/sesi';
-import type { PersistedDiagnosisRecord, PersistedPatient } from '../../src/types';
+import type { PersistedPatient } from '../../src/types';
 import {
   createPatientSchema,
   deletePatientSchema,
-  diagnosisIdSchema,
   patientUpdateSchema,
   recordDiagnosisSchema,
   signDiagnosisSchema,
 } from '../../src/lib/validations/patient';
 
-type PatientWithDiagnoses = Prisma.PatientGetPayload<{ include: { diagnoses: true } }>;
+type PatientWithDiagnoses = Prisma.PatientGetPayload<{
+  include: { diagnoses: { orderBy: { createdAt: 'desc' } } };
+}>;
 type FieldErrors = Record<string, string[] | undefined>;
 
 export type PatientActionResult =
   | { success: true; patient: PersistedPatient }
   | { success: false; message: string; fieldErrors?: FieldErrors };
 
-export type SignDiagnosisResult =
-  | { success: true; diagnosis: PersistedPatient['diagnoses'][number] }
+export type MutationResult =
+  | { success: true }
   | { success: false; message: string; fieldErrors?: FieldErrors };
+
+export type SignDiagnosisResult =
+  | { success: true; patientId: string; diagnosis: PersistedPatient['diagnoses'][number] }
+  | { success: false; message: string; fieldErrors?: FieldErrors };
+
+function isPrismaError(error: unknown, code: string): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === code;
+}
 
 function requireSecret(): string {
   const secret = process.env.SESSION_SECRET;
@@ -35,15 +44,13 @@ function requireSecret(): string {
 }
 
 function pseudonymizeName(name: string): string {
-  const digest = createHmac('sha256', requireSecret())
-    .update(name.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase())
-    .digest('hex');
+  const normalized = name.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase();
+  const digest = createHmac('sha256', requireSecret()).update(normalized).digest('hex');
   return `PAT-${digest}`;
 }
 
 function normalizeGender(value: string): PersistedPatient['gender'] {
-  if (value === 'female' || value === 'male' || value === 'intersex') return value;
-  return 'unknown';
+  return value === 'female' || value === 'male' || value === 'intersex' ? value : 'unknown';
 }
 
 function toPatientRecord(patient: PatientWithDiagnoses): PersistedPatient {
@@ -70,16 +77,18 @@ function toPatientRecord(patient: PatientWithDiagnoses): PersistedPatient {
   };
 }
 
-function fieldErrors(error: { flatten: () => { fieldErrors: FieldErrors } }): FieldErrors {
-  return error.flatten().fieldErrors;
-}
-
-function isPrismaError(error: unknown, code: string): boolean {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === code;
-}
-
 async function requireSession(): Promise<boolean> {
   return Boolean(await bacaSesi());
+}
+
+function revalidatePatientPages(): void {
+  revalidatePath('/');
+  revalidatePath('/clinical-tools');
+  revalidatePath('/assessments/[id]', 'page');
+}
+
+function generatedMedicalRecordNum(): string {
+  return `RM-${new Date().getFullYear()}-${randomInt(0, 10_000).toString().padStart(4, '0')}`;
 }
 
 export async function getPatients(): Promise<PersistedPatient[]> {
@@ -87,19 +96,25 @@ export async function getPatients(): Promise<PersistedPatient[]> {
     throw new Error('A valid session is required to read patient records.');
   }
 
-  try {
-    if (db?.patient?.findMany) {
-      const patients = await db.patient.findMany({
-        include: { diagnoses: { orderBy: { createdAt: 'desc' } } },
-        orderBy: { createdAt: 'desc' },
-      });
-      return patients.map(toPatientRecord);
-    }
-  } catch (error) {
-    console.error('Failed to read patients from database:', error);
-  }
+  const patients = await db.patient.findMany({
+    include: { diagnoses: { orderBy: { createdAt: 'desc' } } },
+    orderBy: { createdAt: 'desc' },
+  });
+  return patients.map(toPatientRecord);
+}
 
-  return [];
+export async function getPatientById(input: unknown): Promise<PersistedPatient | null> {
+  if (!(await requireSession())) {
+    throw new Error('A valid session is required to read patient records.');
+  }
+  const parsed = deletePatientSchema.safeParse(input);
+  if (!parsed.success) return null;
+
+  const patient = await db.patient.findUnique({
+    where: { id: parsed.data },
+    include: { diagnoses: { orderBy: { createdAt: 'desc' } } },
+  });
+  return patient ? toPatientRecord(patient) : null;
 }
 
 export async function createPatientAction(input: unknown): Promise<PatientActionResult> {
@@ -107,66 +122,84 @@ export async function createPatientAction(input: unknown): Promise<PatientAction
     return { success: false, message: 'Your session has expired. Sign in again before saving patient records.' };
   }
 
-  const parsed = createPatientSchema.safeParse(input);
+  const suppliedRecordNum = typeof input === 'object' && input !== null
+    && 'medicalRecordNum' in input && typeof input.medicalRecordNum === 'string';
+  const candidate = suppliedRecordNum
+    ? input
+    : typeof input === 'object' && input !== null
+      ? { ...input, medicalRecordNum: generatedMedicalRecordNum() }
+      : input;
+  const parsed = createPatientSchema.safeParse(candidate);
   if (!parsed.success) {
     return {
       success: false,
       message: 'Periksa kembali data pasien dan gejala yang dimasukkan.',
-      fieldErrors: fieldErrors(parsed.error),
+      fieldErrors: zodFieldErrors(parsed.error),
     };
   }
 
   const { medicalRecordNum, name, age, gender, eGFR, hasPenicillinAlg, ...diagnosis } = parsed.data;
-  try {
-    const patient = await db.$transaction((transaction) =>
-      transaction.patient.create({
-        data: {
-          medicalRecordNum,
-          name: pseudonymizeName(name),
-          age,
-          gender,
-          eGFR,
-          hasPenicillinAlg,
-          diagnoses: {
-            create: {
-              diseaseName: diagnosis.diseaseName,
-              icdCode: diagnosis.icdCode,
-              matchPercentage: diagnosis.matchPercentage,
-              isRareDisease: diagnosis.isRareDisease,
-              symptomsInput: diagnosis.symptoms,
-              prescribedDrug: diagnosis.prescribedDrug,
+  const attempts = suppliedRecordNum ? 1 : 3;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const recordNum = attempt === 0 ? medicalRecordNum : generatedMedicalRecordNum();
+    try {
+      const patient = await db.$transaction((transaction) =>
+        transaction.patient.create({
+          data: {
+            medicalRecordNum: recordNum,
+            name: pseudonymizeName(name),
+            age,
+            gender,
+            eGFR,
+            hasPenicillinAlg,
+            diagnoses: {
+              create: {
+                diseaseName: diagnosis.diseaseName,
+                icdCode: diagnosis.icdCode,
+                matchPercentage: diagnosis.matchPercentage,
+                isRareDisease: diagnosis.isRareDisease,
+                symptomsInput: diagnosis.symptoms,
+                prescribedDrug: diagnosis.prescribedDrug,
+              },
             },
           },
-        },
-        include: { diagnoses: { orderBy: { createdAt: 'desc' } } },
-      }),
-    );
-
-    revalidatePatientPages();
-    return { success: true, patient: toPatientRecord(patient) };
-  } catch (error) {
-    if (isPrismaError(error, 'P2002')) {
-      return {
-        success: false,
-        message: 'Nomor rekam medis sudah digunakan. Pilih nomor yang berbeda.',
-        fieldErrors: { medicalRecordNum: ['Nomor rekam medis sudah digunakan.'] },
-      };
+          include: { diagnoses: { orderBy: { createdAt: 'desc' } } },
+        }),
+      );
+      revalidatePatientPages();
+      return { success: true, patient: toPatientRecord(patient) };
+    } catch (error) {
+      if (isPrismaError(error, 'P2002')) {
+        if (!suppliedRecordNum && attempt + 1 < attempts) continue;
+        return {
+          success: false,
+          message: 'Nomor rekam medis sudah digunakan. Coba simpan kembali.',
+          fieldErrors: { medicalRecordNum: ['Nomor rekam medis sudah digunakan.'] },
+        };
+      }
+      throw error;
     }
-    throw error;
   }
+
+  throw new Error('A unique medical record number could not be generated.');
+}
+
+function zodFieldErrors(error: {
+  flatten: () => { fieldErrors: FieldErrors };
+}): FieldErrors {
+  return error.flatten().fieldErrors;
 }
 
 export async function recordDiagnosisAction(input: unknown): Promise<PatientActionResult> {
   if (!(await requireSession())) {
-    return { success: false, message: 'Your session has expired. Sign in again before saving patient records.' };
+    return { success: false, message: 'Your session has expired. Sign in again before saving the assessment.' };
   }
-
   const parsed = recordDiagnosisSchema.safeParse(input);
   if (!parsed.success) {
     return {
       success: false,
       message: 'Periksa kembali gejala dan data keselamatan pasien.',
-      fieldErrors: fieldErrors(parsed.error),
+      fieldErrors: zodFieldErrors(parsed.error),
     };
   }
 
@@ -192,7 +225,6 @@ export async function recordDiagnosisAction(input: unknown): Promise<PatientActi
         include: { diagnoses: { orderBy: { createdAt: 'desc' } } },
       }),
     );
-
     revalidatePatientPages();
     return { success: true, patient: toPatientRecord(patient) };
   } catch (error) {
@@ -207,13 +239,12 @@ export async function updatePatientAction(input: unknown): Promise<PatientAction
   if (!(await requireSession())) {
     return { success: false, message: 'Your session has expired. Sign in again before updating patient records.' };
   }
-
   const parsed = patientUpdateSchema.safeParse(input);
   if (!parsed.success) {
     return {
       success: false,
       message: 'Periksa kembali nilai eGFR dan status alergi.',
-      fieldErrors: fieldErrors(parsed.error),
+      fieldErrors: zodFieldErrors(parsed.error),
     };
   }
 
@@ -224,7 +255,6 @@ export async function updatePatientAction(input: unknown): Promise<PatientAction
       data,
       include: { diagnoses: { orderBy: { createdAt: 'desc' } } },
     });
-
     revalidatePatientPages();
     return { success: true, patient: toPatientRecord(patient) };
   } catch (error) {
@@ -235,11 +265,10 @@ export async function updatePatientAction(input: unknown): Promise<PatientAction
   }
 }
 
-export async function deletePatientAction(input: unknown): Promise<{ success: boolean; message?: string }> {
+export async function deletePatientAction(input: unknown): Promise<MutationResult> {
   if (!(await requireSession())) {
     return { success: false, message: 'Your session has expired. Sign in again before deleting patient records.' };
   }
-
   const parsed = deletePatientSchema.safeParse(input);
   if (!parsed.success) {
     return { success: false, message: parsed.error.issues[0]?.message ?? 'Patient ID is invalid.' };
@@ -253,29 +282,26 @@ export async function deletePatientAction(input: unknown): Promise<{ success: bo
     }
     throw error;
   }
-
   revalidatePatientPages();
   return { success: true };
 }
 
 export async function signDiagnosisAction(input: unknown): Promise<SignDiagnosisResult> {
   if (!(await requireSession())) {
-    return { success: false, message: 'Your session has expired. Sign in again before confirming a signature demonstration.' };
+    return { success: false, message: 'Your session has expired. Sign in again before recording the demo signature.' };
   }
-
   const parsed = signDiagnosisSchema.safeParse(input);
   if (!parsed.success) {
     return {
       success: false,
       message: 'Periksa kembali data diagnosis yang akan ditandatangani.',
-      fieldErrors: fieldErrors(parsed.error),
+      fieldErrors: zodFieldErrors(parsed.error),
     };
   }
 
   const { diagnosisId, ...diagnosisInput } = parsed.data;
   const signedAt = new Date();
   const secret = requireSecret();
-
   try {
     const diagnosis = await db.$transaction(async (transaction) => {
       const existing = await transaction.diagnosisRecord.findUnique({
@@ -284,7 +310,7 @@ export async function signDiagnosisAction(input: unknown): Promise<SignDiagnosis
       });
       if (!existing) return null;
 
-      const signaturePayload = JSON.stringify({
+      const payload = JSON.stringify({
         version: 1,
         diagnosisId: existing.id,
         patientId: existing.patientId,
@@ -293,31 +319,31 @@ export async function signDiagnosisAction(input: unknown): Promise<SignDiagnosis
         ...diagnosisInput,
       });
       const signature = `demo-hmac-sha256:v1:${signedAt.toISOString()}:${createHmac('sha256', secret)
-        .update(`aegismed-demo-prescription:v1\0${signaturePayload}`)
+        .update(`aegismed-demo-prescription:v1\0${payload}`)
         .digest('hex')}`;
-
-      return transaction.diagnosisRecord.update({
+      const updated = await transaction.diagnosisRecord.update({
         where: { id: diagnosisId },
         data: { ...diagnosisInput, digitalSignature: signature },
       });
+      return { patientId: existing.patientId, diagnosis: updated };
     });
 
     if (!diagnosis) {
       return { success: false, message: 'Diagnosis record was not found. Refresh the page and try again.' };
     }
-
     revalidatePatientPages();
     return {
       success: true,
+      patientId: diagnosis.patientId,
       diagnosis: {
-        id: diagnosis.id,
-        diseaseName: diagnosis.diseaseName,
-        icdCode: diagnosis.icdCode,
-        matchPercentage: diagnosis.matchPercentage,
-        isRareDisease: diagnosis.isRareDisease,
-        prescribedDrug: diagnosis.prescribedDrug,
-        digitalSignature: diagnosis.digitalSignature,
-        createdAt: diagnosis.createdAt.toISOString(),
+        id: diagnosis.diagnosis.id,
+        diseaseName: diagnosis.diagnosis.diseaseName,
+        icdCode: diagnosis.diagnosis.icdCode,
+        matchPercentage: diagnosis.diagnosis.matchPercentage,
+        isRareDisease: diagnosis.diagnosis.isRareDisease,
+        prescribedDrug: diagnosis.diagnosis.prescribedDrug,
+        digitalSignature: diagnosis.diagnosis.digitalSignature,
+        createdAt: diagnosis.diagnosis.createdAt.toISOString(),
       },
     };
   } catch (error) {
@@ -326,38 +352,4 @@ export async function signDiagnosisAction(input: unknown): Promise<SignDiagnosis
     }
     throw error;
   }
-}
-
-export async function getDiagnosisRecord(input: unknown): Promise<PersistedDiagnosisRecord | null> {
-  if (!(await requireSession())) {
-    throw new Error('A valid session is required to read diagnosis records.');
-  }
-
-  const parsed = diagnosisIdSchema.safeParse(input);
-  if (!parsed.success) return null;
-
-  const diagnosis = await db.diagnosisRecord.findUnique({
-    where: { id: parsed.data },
-    include: { patient: { select: { medicalRecordNum: true } } },
-  });
-  if (!diagnosis) return null;
-
-  return {
-    id: diagnosis.id,
-    diseaseName: diagnosis.diseaseName,
-    icdCode: diagnosis.icdCode,
-    matchPercentage: diagnosis.matchPercentage,
-    isRareDisease: diagnosis.isRareDisease,
-    prescribedDrug: diagnosis.prescribedDrug,
-    digitalSignature: diagnosis.digitalSignature,
-    createdAt: diagnosis.createdAt.toISOString(),
-    symptomsInput: diagnosis.symptomsInput,
-    patientMedicalRecordNum: diagnosis.patient.medicalRecordNum,
-  };
-}
-
-function revalidatePatientPages(): void {
-  revalidatePath('/');
-  revalidatePath('/clinical-tools');
-  revalidatePath('/assessments/[id]', 'page');
 }

@@ -1,6 +1,6 @@
-import { Activity, AlertTriangle, FileText, Search, ShieldCheck, Sparkles, Trash2 } from 'lucide-react';
+import { Activity, AlertTriangle, FileText, Search, ShieldCheck, Sparkles } from 'lucide-react';
 import type { Dispatch, SetStateAction } from 'react';
-import type { DiagnosisMatch, PatientState, PersistedPatient } from '../types';
+import type { DiagnosisMatch, PatientState } from '../types';
 import { Button } from '../components/UI/Button';
 import { Card } from '../components/UI/Card';
 import { Badge } from '../components/UI/Badge';
@@ -14,60 +14,43 @@ type Props = {
   onEvaluate: () => void;
   onSelect: (match: DiagnosisMatch) => void;
   onPreset: (key: string) => void;
-  savedPatients: PersistedPatient[];
-  fieldErrors: Record<string, string[] | undefined>;
-  saveError: string;
-  isSaving: boolean;
-  onSelectPatient: (patient: PersistedPatient) => void;
-  onDeletePatient: (patient: PersistedPatient) => void;
-  onNewPatient: () => void;
   hasEvaluated: boolean;
+  fieldErrors: Record<string, string[] | undefined>;
+  isEvaluating: boolean;
+  isSavingSafety: boolean;
+  onSaveSafetyContext: () => void;
 };
 
 export function PatientDiagnosis(props: Props) {
-  const { patient, setPatient, matches, onEvaluate, onSelect, onPreset, savedPatients, fieldErrors, saveError, isSaving, onSelectPatient, onDeletePatient, onNewPatient, hasEvaluated } = props;
+  const { patient, setPatient, matches, onEvaluate, onSelect, onPreset, hasEvaluated, fieldErrors, isEvaluating, isSavingSafety, onSaveSafetyContext } = props;
   const allergyLabels = [['penicillin', 'Penicillin / beta-lactam'], ['sulfa', 'Sulfonamide'], ['macrolide', 'Macrolide']] as const;
   return (
     <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
       <section className="space-y-5">
-        <Card title="Patient assessment" subtitle="Enter encounter details to save a patient and its initial differential to PostgreSQL.">
+        <Card title="Patient assessment" subtitle="Enter patient and symptom details to save an assessment to PostgreSQL.">
           <div className="space-y-4">
-            <Input id="patient-record-number" label="Medical record number" required={!patient.patientId} readOnly={Boolean(patient.patientId)} value={patient.medicalRecordNum} onChange={(e) => setPatient((current) => ({ ...current, medicalRecordNum: e.target.value.toUpperCase() }))} placeholder="RM-2026-0101" error={fieldErrors.medicalRecordNum?.[0]} helperText={patient.patientId ? 'Existing patient record selected.' : 'An available number is generated for you; you can edit it.'} />
-            <Input id="patient-name" label="Patient name" autoComplete="off" required={!patient.patientId} readOnly={Boolean(patient.patientId)} minLength={3} maxLength={100} value={patient.rawName} onChange={(e) => setPatient((current) => ({ ...current, rawName: e.target.value }))} placeholder={patient.patientId ? 'Raw name is not stored' : 'e.g. Jordan Lee'} error={fieldErrors.name?.[0]} helperText={patient.patientId ? 'The saved record uses its server-generated pseudonym.' : 'The server stores an HMAC-SHA-256 pseudonym instead of this name.'} />
+            <Input id="patient-name" label="Patient name" required autoComplete="off" value={patient.rawName} onChange={(e) => setPatient((current) => ({ ...current, rawName: e.target.value }))} placeholder="e.g. Jordan Lee" error={fieldErrors.name?.[0]} helperText="Converted to a keyed HMAC-SHA-256 pseudonym before storage; the submitted name is not saved." />
             <div className="grid grid-cols-2 gap-3">
-              <Input id="patient-age" label="Age (years)" type="number" min="1" max="120" required={!patient.patientId} readOnly={Boolean(patient.patientId)} value={patient.age} onChange={(e) => setPatient((current) => ({ ...current, age: e.target.value }))} placeholder="Years" error={fieldErrors.age?.[0]} />
-              <div><label htmlFor="patient-gender" className="mb-2 block text-xs font-semibold text-slate-300">Gender (optional)</label><select id="patient-gender" disabled={Boolean(patient.patientId)} value={patient.gender} onChange={(e) => setPatient((current) => ({ ...current, gender: e.target.value as PatientState['gender'] }))} className="min-h-[42px] w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-xs text-slate-200 focus:border-cyan-400 focus:outline-none disabled:opacity-70"><option value="">Not provided</option><option value="female">Female</option><option value="male">Male</option><option value="intersex">Intersex</option><option value="unknown">Unknown</option></select></div>
+              <Input id="patient-age" label="Age (years)" required type="number" min="1" max="120" value={patient.age} onChange={(e) => setPatient((current) => ({ ...current, age: e.target.value }))} placeholder="Years" error={fieldErrors.age?.[0]} />
+              <div><label htmlFor="patient-gender" className="mb-2 block text-xs font-semibold text-slate-300">Gender (optional)</label><select id="patient-gender" value={patient.gender} onChange={(e) => setPatient((current) => ({ ...current, gender: e.target.value as PatientState['gender'] }))} className="min-h-[42px] w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-xs text-slate-200 focus:border-cyan-400 focus:outline-none"><option value="">Not provided</option><option value="female">Female</option><option value="male">Male</option><option value="intersex">Intersex</option><option value="unknown">Unknown</option></select></div>
             </div>
-            <Textarea id="symptoms" label="Clinical symptoms" required minLength={10} maxLength={1000} value={patient.symptomsRaw} onChange={(e) => setPatient((current) => ({ ...current, symptomsRaw: e.target.value }))} rows={5} placeholder="Describe the presenting symptoms, onset, duration, and relevant findings..." error={fieldErrors.symptoms?.[0]} helperText="Stored with the diagnosis record. Use synthetic data only." />
+            <Textarea id="symptoms" label="Clinical symptoms" required value={patient.symptomsRaw} onChange={(e) => setPatient((current) => ({ ...current, symptomsRaw: e.target.value }))} rows={5} placeholder="Describe the presenting symptoms, onset, duration, and relevant findings..." error={fieldErrors.symptoms?.[0]} helperText="Matching is local to this browser; include symptoms in the patient's own words." />
             <div className="rounded-xl border border-slate-800 bg-[#0b0f19] p-3"><span className="text-[10px] font-semibold text-slate-400">Patient reference</span><p className="mt-1 break-all font-mono text-xs text-cyan-200">{patient.hashedId || 'Created after assessment'}</p></div>
             <div><div className="mb-2 text-xs font-semibold text-slate-300">Clinical presets</div><div className="flex flex-wrap gap-2">{[['cap', 'CAP pneumonia'], ['uti', 'UTI'], ['fabry', 'Fabry crisis'], ['gbs', 'GBS']].map(([key, label]) => <Button key={key} type="button" className="min-h-8 px-3 py-1 text-[11px]" onClick={() => onPreset(key)}>{label}</Button>)}</div></div>
-            {saveError && <p role="alert" className="text-xs leading-5 text-rose-200">{saveError}</p>}
-            <Button type="button" variant="primary" className="w-full" onClick={onEvaluate} disabled={isSaving || !patient.symptomsRaw.trim()}>{isSaving ? 'Saving assessment…' : <><Search size={15} /> Generate differential <span aria-hidden="true">→</span></>}</Button>
+            {fieldErrors.medicalRecordNum?.[0] && <p role="alert" className="text-xs text-rose-300">{fieldErrors.medicalRecordNum[0]}</p>}
+            <Button type="button" variant="primary" className="w-full" onClick={onEvaluate} isLoading={isEvaluating} loadingText="Saving assessment..."><Search size={15} /> Generate differential <span aria-hidden="true">→</span></Button>
           </div>
         </Card>
         <Card title="Safety context" subtitle="For demonstration only; not a dosing calculator.">
           <label htmlFor="egfr" className="mb-2 flex justify-between text-xs text-slate-300"><span>eGFR</span><strong className="text-cyan-200">{patient.egfr} mL/min/1.73m²</strong></label>
           <input id="egfr" type="range" min="5" max="150" value={patient.egfr} onChange={(e) => setPatient((current) => ({ ...current, egfr: Number(e.target.value) }))} className="w-full accent-cyan-400" />
           <fieldset className="mt-4 space-y-2"><legend className="mb-2 text-xs font-semibold text-slate-300">Reported allergies</legend>{allergyLabels.map(([key, label]) => <label key={key} className="flex cursor-pointer items-center gap-2 text-xs text-slate-400"><input type="checkbox" checked={patient.allergies.includes(key)} onChange={() => setPatient((current) => ({ ...current, allergies: current.allergies.includes(key) ? current.allergies.filter((x) => x !== key) : [...current.allergies, key] }))} className="accent-cyan-400" />{label}</label>)}</fieldset>
-        </Card>
-        <Card title="Saved patient records" subtitle={`${savedPatients.length} records in PostgreSQL · selecting a patient adds the next assessment to its history`}>
-          <div className="mb-3"><Button type="button" onClick={onNewPatient}>New patient</Button></div>
-          {savedPatients.length ? <ul className="space-y-3">{savedPatients.map((savedPatient) => (
-            <li key={savedPatient.id} className="rounded-xl border border-slate-800 bg-[#0b0f19] p-3">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div><p className="font-mono text-xs text-cyan-200">{savedPatient.medicalRecordNum}</p><p className="mt-1 text-[10px] text-slate-400">Age {savedPatient.age} · eGFR {savedPatient.eGFR} · {savedPatient.diagnoses.length} assessment{savedPatient.diagnoses.length === 1 ? '' : 's'}</p>{savedPatient.diagnoses[0] && <p className="mt-1 text-[10px] text-slate-300">{savedPatient.diagnoses[0].diseaseName}</p>}</div>
-                <div className="flex gap-2">
-                  <Button type="button" className="min-h-8 px-2 py-1 text-[10px]" onClick={() => onSelectPatient(savedPatient)}>Load</Button>
-                  <Button type="button" variant="danger" className="min-h-8 px-2 py-1 text-[10px]" aria-label={`Delete patient ${savedPatient.medicalRecordNum} and its assessments`} onClick={() => onDeletePatient(savedPatient)}><Trash2 size={12} /></Button>
-                </div>
-              </div>
-            </li>
-          ))}</ul> : <p className="text-xs text-slate-400">No patient records have been saved yet.</p>}
+          <Button type="button" variant="secondary" className="mt-4 w-full" onClick={onSaveSafetyContext} isLoading={isSavingSafety} loadingText="Saving safety context...">Save safety context</Button>
         </Card>
       </section>
       <section aria-live="polite" className="space-y-5">
         <Card className="border-cyan-400/15 bg-gradient-to-br from-cyan-400/[0.06] to-slate-900">
-          <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">Decision support workspace</p><h2 className="mt-2 text-xl font-bold text-white">Differential overview</h2><p className="mt-1 text-xs leading-5 text-slate-400">Pattern matching is educational only and cannot diagnose, rule out, or recommend treatment.</p></div><Badge variant="cyan"><ShieldCheck size={12} className="mr-1" /> Server HMAC-SHA-256 pseudonym</Badge></div>
+          <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">Decision support workspace</p><h2 className="mt-2 text-xl font-bold text-white">Differential overview</h2><p className="mt-1 text-xs leading-5 text-slate-400">Pattern matching is educational only and cannot diagnose, rule out, or recommend treatment.</p></div><Badge variant="cyan"><ShieldCheck size={12} className="mr-1" /> HMAC-SHA-256 pseudonym</Badge></div>
         </Card>
         {matches.length > 0 ? <div className="space-y-3">
           <div className="flex items-center justify-between"><h3 className="text-sm font-bold text-white">{hasEvaluated ? 'Potential matches' : 'Live symptom signals'}</h3><span className="text-[10px] text-slate-500">{matches.length} results</span></div>

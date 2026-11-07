@@ -1,23 +1,16 @@
 import 'server-only';
-import type { Disease } from '../src/types';
-import { diseaseRecordSchema } from '../src/lib/validations/disease';
-import { diseases } from '../src/mock/diseasesData';
-import { prisma } from './prisma';
+import db from './db';
+import { bacaSesi } from './sesi';
+import { diseaseSchema } from '../src/lib/validations/disease';
 
-export async function getDiseaseCatalog(): Promise<Disease[]> {
-  try {
-    if (prisma?.diseaseCatalogItem?.findMany) {
-      const entries = await prisma.diseaseCatalogItem.findMany({
-        orderBy: { name: 'asc' },
-      });
-
-      if (entries.length > 0) {
-        return entries.map((entry) => diseaseRecordSchema.parse(entry.data));
-      }
-    }
-  } catch (error) {
-    console.error('Failed to load disease catalog from database, falling back to static dataset:', error);
+export async function getDiseaseCatalog() {
+  if (!(await bacaSesi())) {
+    throw new Error('A valid session is required to read the disease catalog.');
   }
 
-  return diseases;
+  const entries = await db.diseaseCatalogItem.findMany({
+    orderBy: { name: 'asc' },
+    select: { data: true },
+  });
+  return entries.map(({ data }) => diseaseSchema.parse(data));
 }

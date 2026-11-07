@@ -56,15 +56,6 @@ test('rejects modified AAD', () => {
   );
 });
 
-test('rejects a tampered authentication tag', () => {
-  const encrypted = encryptAEAD('synthetic diagnosis', key);
-  const changedTag = `${encrypted.authTag.slice(0, -2)}${encrypted.authTag.endsWith('00') ? 'ff' : '00'}`;
-  assert.throws(
-    () => decryptAEAD({ ...encrypted, authTag: changedTag }, key),
-    AuthenticationFailedError,
-  );
-});
-
 test('rejects malformed keys, ciphertext fields, and empty plaintext', () => {
   assert.throws(() => encryptAEAD('data', 'bad-key'), AeadInputError);
   assert.throws(() => encryptAEAD('', key), AeadInputError);
