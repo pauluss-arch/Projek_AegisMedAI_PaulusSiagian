@@ -62,8 +62,8 @@
 3. **Smart Antibiotic Stewardship Verification:**
    - Pencocokan antibiotik teruji klinis berdasarkan patogen dan indikasi.
    - Penyesuaian dosis otomatis berdasarkan slider fungsi ginjal pasien (eGFR) dan centang alergi penisilin/sulfa.
-4. **Rare Disease Knowledge Explorer (Tab 3):**
-   - Katalog dan pencarian real-time 12+ penyakit langka berbasis kode ICD-11 dan pola gejala klinis (*symptom signals*).
+4. **Disease Reference Library (Tab 3):**
+   - Katalog PostgreSQL dengan pencarian penyakit dan pola gejala; kode ICD-11 yang belum diverifikasi ditandai secara eksplisit.
 5. **PDF Export / Print-Ready Medical Report Generator:**
    - Menyediakan fungsi cetak/ekspor resume medis lengkap dengan identitas terenkripsi dan status tanda tangan digital.
 6. **Audit History Log & LocalStorage Sync (Tab 4):**
@@ -87,7 +87,7 @@
 
 ## 📁 5. Struktur Folder Proyek & Mock Data (Persiapan Database MS2)
 
-Mock data disimpan secara terstruktur di `src/mock/diseasesData.ts` sebagai simulasi database sebelum integrasi backend pada Milestone 2:
+Data referensi penyakit dikelola sebagai data seed di `medic/src/mock/diseasesData.ts` dan disimpan dalam tabel PostgreSQL `disease_catalog_items`. Aplikasi membaca katalog dari database; file TypeScript tersebut menjadi sumber seed yang dapat diperbarui dan di-upsert:
 
 ```text
 medic/
@@ -238,4 +238,28 @@ npm run test:crypto
 npx tsx src/crypto/patientCrypto.test.ts
 ```
 
+---
 
+## Milestone 2 (v0.2) — PostgreSQL persistence
+
+The Next.js app now stores patient records and their diagnosis history in PostgreSQL through Prisma 7. Copy `medic/.env.example` to `medic/.env`, set `DATABASE_URL` to your PostgreSQL connection string, and set `SESSION_SECRET` to a random secret of at least 32 bytes. Keep `.env` private.
+
+Run these commands from the `medic` project directory against a fresh database or one already managed by Prisma Migrate:
+
+```bash
+npx prisma migrate dev --name init_v0.2
+npx prisma generate
+npx prisma db seed
+```
+
+If `catalog_items` already exists without migration history, back up the database and verify it matches the existing catalog schema. Then mark the included baseline as applied before running the commands above:
+
+```bash
+npx prisma migrate resolve --applied 20261107164000_baseline_catalog
+```
+
+Do not run that baseline command against an empty database, and do not accept a reset prompt on a database containing data. The baseline records the existing catalog table without recreating it; the existing migrations add patient and diagnosis tables and the disease reference catalog.
+
+The seed upserts the disease reference entries and a synthetic patient and is safe to run more than once. Five additional starter entries cover dengue, leptospirosis, malaria, chikungunya, and hantavirus pulmonary syndrome. These are educational references, not diagnostic criteria or treatment guidance; ICD-11 values remain marked as unverified. Patient names entered through the assessment form are stored as keyed HMAC-SHA-256 pseudonyms using `SESSION_SECRET`; raw names are not persisted. Assessment symptoms and medical-record numbers remain sensitive data, so use synthetic data only. This demonstration is not certified for clinical use or regulatory compliance.
+
+Catalog and document API routes require the same signed-in session as the management pages. Confirming a demo prescription stores a domain-separated HMAC-SHA-256 integrity marker for the selected diagnosis; it is not a public-key signature, proof of clinician identity, or a legally valid prescription.

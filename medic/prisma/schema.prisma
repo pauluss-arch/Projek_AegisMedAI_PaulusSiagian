@@ -1,7 +1,3 @@
-// prisma/schema.prisma
-// Model untuk katalog instrumen klinis AegisMed AI (Clinical Catalog Items)
-// Prisma 7/8 + PostgreSQL
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,21 +6,58 @@ datasource db {
   provider = "postgresql"
 }
 
-// ─────────────────────────────────────────────────────────
-// Model utama: Item katalog instrumen klinis
-// ─────────────────────────────────────────────────────────
-model CatalogItem {
-  id          String   @id @default(cuid())  // ID unik alfanumerik aman URL
-  judul       String                          // Nama/Judul instrumen medis atau modul diagnosis
-  deskripsi   String                          // Deskripsi indikasi atau petunjuk klinis
-  aktif       Boolean  @default(true)        // Status keaktifan: aktif (true) | non-aktif (false)
-  kategori    String   @default("Clinical")  // Kategori instrumen: Diagnosis, Antibiotik, Referensi, dll.
-  dibuatOleh  String   @default("Tim Medis") // Praktisi / dokter pengunggah instrumen
-  catatan     String?                         // Catatan instruksi klinis khusus (opsional/nullable)
-
-  createdAt   DateTime @default(now())       // Timestamp pencatatan awal
-  updatedAt   DateTime @updatedAt            // Timestamp pembaruan data terakhir
-
-  @@map("catalog_items")                      // Pemetaan nama tabel pada PostgreSQL
+model Patient {
+  id               String            @id @default(uuid()) @db.Uuid
+  medicalRecordNum String            @unique
+  name             String
+  age              Int
+  gender           String            @default("unknown")
+  eGFR             Float             @default(90.0)
+  hasPenicillinAlg Boolean           @default(false)
+  diagnoses        DiagnosisRecord[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 }
 
+model DiagnosisRecord {
+  id               String   @id @default(uuid()) @db.Uuid
+  patientId        String   @db.Uuid
+  patient          Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  diseaseName      String
+  icdCode          String
+  matchPercentage  Float
+  isRareDisease    Boolean  @default(false)
+  symptomsInput    String   @db.Text
+  prescribedDrug   String?
+  digitalSignature String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model CatalogItem {
+  id         String   @id @default(cuid())
+  judul      String
+  deskripsi  String
+  aktif      Boolean  @default(true)
+  kategori   String   @default("Clinical")
+  dibuatOleh String   @default("Tim Medis")
+  catatan    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("catalog_items")
+}
+
+model DiseaseCatalogItem {
+  id        String   @id
+  name      String
+  category  String
+  icd11     String
+  rare      Boolean  @default(false)
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([rare, category])
+  @@map("disease_catalog_items")
+}

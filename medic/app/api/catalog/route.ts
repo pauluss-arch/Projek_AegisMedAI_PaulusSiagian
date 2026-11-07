@@ -2,9 +2,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '../../../lib/db';
 import { skemaApiItem } from '../../../lib/skema';
+import { requireApiSession } from '../../../lib/api-auth';
+import { readJsonBody } from '../../../lib/api-json';
 
 // ── GET /api/catalog — Ambil semua item katalog ─────────────────────────────
 export async function GET() {
+  const unauthorized = await requireApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const items = await db.catalogItem.findMany({
       orderBy: { createdAt: 'desc' },
@@ -21,9 +26,14 @@ export async function GET() {
 
 // ── POST /api/catalog — Buat item katalog baru ──────────────────────────────
 export async function POST(request: NextRequest) {
+  const unauthorized = await requireApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
-    const body = await request.json();
-    const parsed = skemaApiItem.safeParse(body);
+    const body = await readJsonBody(request);
+    if (!body.success) return body.response;
+
+    const parsed = skemaApiItem.safeParse(body.data);
     if (!parsed.success) {
       return NextResponse.json(
         { success: false, message: 'Data tidak valid.', errors: parsed.error.flatten() },
@@ -64,4 +74,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

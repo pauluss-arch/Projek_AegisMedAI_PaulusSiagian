@@ -25,7 +25,7 @@ export function AntibioticChecker({ disease, patient, onPatientChange }: Props) 
             <label htmlFor="checker-egfr" className="mb-2 flex justify-between text-xs font-semibold text-slate-300">
               <span>Renal function (eGFR)</span><span className="font-mono text-cyan-200">{patient.egfr} mL/min/1.73m²</span>
             </label>
-            <input id="checker-egfr" type="range" min="5" max="120" value={patient.egfr} onChange={(event) => onPatientChange((current) => ({ ...current, egfr: Number(event.target.value) }))} className="w-full accent-cyan-400" aria-valuetext={`${patient.egfr} mL/min per 1.73 square meters`} />
+            <input id="checker-egfr" type="range" min="5" max="150" value={patient.egfr} onChange={(event) => onPatientChange((current) => ({ ...current, egfr: Number(event.target.value) }))} className="w-full accent-cyan-400" aria-valuetext={`${patient.egfr} mL/min per 1.73 square meters`} />
             <p className="mt-1 text-[10px] text-slate-500">A low eGFR is not converted to a fixed percentage dose reduction. Adjustments depend on the specific drug and protocol.</p>
           </div>
           <fieldset className="space-y-2">
