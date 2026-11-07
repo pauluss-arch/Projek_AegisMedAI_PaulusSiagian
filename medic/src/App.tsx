@@ -109,6 +109,7 @@ function App({ initialPatients, diseases }: { initialPatients: PersistedPatient[
   const [isSavingSafety, setIsSavingSafety] = useState(false);
   const [storageReady, setStorageReady] = useState(false);
   const [storageError, setStorageError] = useState('');
+  const [preferenceError, setPreferenceError] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
   const [evaluated, setEvaluated] = useState(false);
   const [selectedDisease, setSelectedDisease] = useState<Disease | null>(null);
@@ -149,7 +150,7 @@ function App({ initialPatients, diseases }: { initialPatients: PersistedPatient[
         }));
       }
     } catch {
-      setStorageError('Local preferences could not be read. The assessment remains available with database records.');
+      setPreferenceError('Local preferences could not be read. The assessment remains available with database records.');
     } finally {
       setStorageReady(true);
     }
@@ -159,9 +160,9 @@ function App({ initialPatients, diseases }: { initialPatients: PersistedPatient[
     if (!storageReady) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ egfr: patient.egfr, allergies: patient.allergies, patientId: patient.hashedId } satisfies StoredState));
-      setStorageError('');
+      setPreferenceError('');
     } catch {
-      setStorageError('Local browser storage is unavailable or full. Changes may not persist after this session.');
+      setPreferenceError('Local browser storage is unavailable or full. Changes may not persist after this session.');
     }
   }, [patient.egfr, patient.allergies, patient.hashedId, storageReady]);
 
@@ -176,6 +177,13 @@ function App({ initialPatients, diseases }: { initialPatients: PersistedPatient[
     setSelectedDisease(disease);
     setSelectedProbability(matches.find((match) => match.disease.id === disease.id)?.probability ?? 0);
   };
+
+  const selectedSignatureStatus = selectedDisease && patients
+    .find((record) => record.id === activePatientId)
+    ?.diagnoses.find((diagnosis) => diagnosis.id === activeDiagnosisId && diagnosis.diseaseName === selectedDisease.name)
+    ?.digitalSignature
+    ? 'Demo signature confirmed'
+    : 'Not signed';
 
   const runEvaluation = async (symptoms: string, rawName: string) => {
     setFieldErrors({});
@@ -297,7 +305,7 @@ function App({ initialPatients, diseases }: { initialPatients: PersistedPatient[
         icdCode: selectedDisease.icd11Verified ? selectedDisease.icd11 : `${selectedDisease.icd11} · unverified`,
         matchPercentage: selectedProbability,
         isRareDisease: selectedDisease.rare,
-        prescribedDrug: selectedDisease.therapies[0]?.name ?? null,
+        prescribedDrug: null,
       });
       if (!result.success) {
         setStorageError(result.message);
@@ -321,7 +329,7 @@ function App({ initialPatients, diseases }: { initialPatients: PersistedPatient[
       window.alert('Run an assessment and select a finding before exporting a report.');
       return;
     }
-    printReport(selectedDisease, patient.hashedId, selectedProbability, patient.egfr, history[0]?.signatureStatus ?? 'Not signed');
+    printReport(selectedDisease, patient.hashedId, selectedProbability, patient.egfr, selectedSignatureStatus);
   };
 
   return (
@@ -340,6 +348,7 @@ function App({ initialPatients, diseases }: { initialPatients: PersistedPatient[
           <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-purple-300" /><p><strong className="text-purple-200">Privacy and security demonstration.</strong> Patient names are converted to keyed HMAC-SHA-256 pseudonyms before storage; the submitted name is not saved. Pseudonymization is not encryption, and this prototype is not certified for HIPAA/PDP compliance. Use synthetic data only.</p>
         </section>
         {storageError && <div role="alert" className="rounded-lg border border-rose-400/30 bg-rose-400/10 p-3 text-xs text-rose-200"><ShieldAlert className="mr-2 inline h-4 w-4" />{storageError}</div>}
+        {preferenceError && <div role="alert" className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-200"><ShieldAlert className="mr-2 inline h-4 w-4" />{preferenceError}</div>}
         {statusMessage && <p role="status" className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 p-3 text-xs text-emerald-200">{statusMessage}</p>}
         {activeTab === 'diagnosis' && <PatientDiagnosis patient={patient} setPatient={setPatient} matches={matches} onEvaluate={evaluate} onSelect={selectDiagnosis} onPreset={loadPreset} hasEvaluated={evaluated} fieldErrors={fieldErrors} isEvaluating={isEvaluating} isSavingSafety={isSavingSafety} onSaveSafetyContext={saveSafetyContext} />}
         {activeTab === 'antibiotic' && <AntibioticChecker disease={selectedForSafety} patient={patient} onPatientChange={setPatient} onSaveSafetyContext={saveSafetyContext} isSavingSafety={isSavingSafety} />}
@@ -359,7 +368,7 @@ function App({ initialPatients, diseases }: { initialPatients: PersistedPatient[
               const conflicts = therapy.contraindications.filter((allergy) => patient.allergies.includes(allergy));
               return <article key={therapy.id} className="rounded-xl border border-slate-800 bg-[#0b0f19] p-3"><div className="flex flex-wrap justify-between gap-2"><h4 className="text-xs font-semibold text-white">{therapy.name}</h4><Badge variant={conflicts.length ? 'danger' : 'cyan'}>{conflicts.length ? 'Potential allergy conflict' : therapy.status}</Badge></div><p className="mt-2 text-[10px] leading-5 text-slate-400">{therapy.note}</p><p className="mt-1 text-[10px] text-slate-500">{therapy.baseDose} {patient.egfr < 30 ? therapy.renalDoseBelow30 : ''}</p></article>;
             })}</div> : <p className="text-xs text-slate-400">No antibiotic therapy is listed for this condition.</p>}</Card>
-            <div className="flex flex-wrap justify-end gap-2"><Button type="button" onClick={() => printReport(selectedDisease, patient.hashedId, selectedProbability, patient.egfr, history[0]?.signatureStatus ?? 'Not signed')}><FileDown size={14} /> Print / export</Button><Button type="button" variant="primary" onClick={() => setSignatureConfirm(true)}>Select & sign demo prescription</Button></div>
+            <div className="flex flex-wrap justify-end gap-2"><Button type="button" onClick={() => printReport(selectedDisease, patient.hashedId, selectedProbability, patient.egfr, selectedSignatureStatus)}><FileDown size={14} /> Print / export</Button><Button type="button" variant="primary" onClick={() => setSignatureConfirm(true)}>Record demo signature</Button></div>
             <p className="text-[10px] leading-4 text-slate-500">Digital signing is simulated only. No prescription is transmitted, and a qualified prescriber must independently determine care.</p>
           </div>
         </Modal>

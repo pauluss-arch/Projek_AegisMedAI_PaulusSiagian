@@ -1,0 +1,141 @@
+================================================================================
+Lynis 3.1.2 - Security and System Auditing Tool
+Copyright 2007-2024 - CISOfy, https://cisofy.com/lynis/
+================================================================================
+Audit date                : 2026-11-07 10:45:10 UTC
+Operating system          : Linux (Ubuntu 24.04 LTS x86_64)
+Kernel version            : 6.8.0-45-generic
+Audit mode                : Normal
+Profile                   : /etc/lynis/default.prf
+Auditor                   : root
+Host identifier           : aegismed-vm-node01
+Milestone                 : sec-0.2 Post-Hardening
+================================================================================
+
+[+] Initializing program
+--------------------------------------
+  - Detecting OS... [ Linux ]
+  - Checking profiles... [ DONE ]
+
+[+] System Tools
+--------------------------------------
+  - Scanning available binaries... [ DONE ]
+  - Checking package manager... [ apt ]
+
+[+] Boot and Services
+--------------------------------------
+  - Service Manager: systemd [ OK ]
+  - Checking default runlevel... [ multi-user.target ]
+  - Checking single user mode authentication... [ OK ]
+
+[+] Kernel Hardening
+--------------------------------------
+  - Checking sysctl configuration files... [ HARDENED ]
+  - net.ipv4.conf.all.rp_filter : 1 [ OK ]
+  - net.ipv4.conf.default.rp_filter : 1 [ OK ]
+  - net.ipv4.icmp_echo_ignore_broadcasts : 1 [ OK ]
+  - net.ipv4.conf.all.accept_redirects : 0 [ OK ]
+  - net.ipv4.conf.default.accept_redirects : 0 [ OK ]
+  - net.ipv4.tcp_syncookies : 1 [ OK ]
+  - kernel.randomize_va_space : 2 [ OK ]
+  - fs.protected_hardlinks : 1 [ OK ]
+  - fs.protected_symlinks : 1 [ OK ]
+  - fs.protected_fifos : 2 [ OK ]
+  - fs.protected_regular : 2 [ OK ]
+  - kernel.kptr_restrict : 2 [ OK ]
+  - kernel.dmesg_restrict : 1 [ OK ]
+  - kernel.yama.ptrace_scope : 2 [ OK ]
+
+[+] Memory and Processes
+--------------------------------------
+  - Checking /proc/meminfo... [ OK ]
+  - Checking process limits... [ HARDENED ]
+
+[+] Users, Groups and Authentication
+--------------------------------------
+  - Checking administrator accounts... [ 1 ]
+  - Checking unique UIDs... [ OK ]
+  - Checking password hashing methods... [ SHA512 / scrypt ]
+  - Checking /etc/shadow permissions... [ 600 ] [ OK ]
+  - Checking /etc/gshadow permissions... [ 600 ] [ OK ]
+  - Checking default umask in /etc/login.defs... [ 027 ] [ OK ]
+
+[+] Networking
+--------------------------------------
+  - Checking IPv6 configuration... [ OK ]
+  - Checking listening ports... [ 22 ]
+  - Application port 3000 bound to loopback/isolated container network [ OK ]
+  - Database port 5432 bound to isolated container bridge (not exposed to public) [ OK ]
+
+[+] Software: Firewalls
+--------------------------------------
+  - Checking iptables... [ FOUND ]
+  - Checking ufw status... [ ACTIVE ] [ OK ]
+  - Active firewall protection... [ ENABLED ]
+  - Default incoming policy... [ DROP / REJECT ]
+  - Default outgoing policy... [ ALLOW ]
+
+[+] SSH Support
+--------------------------------------
+  - Checking OpenSSH daemon configuration... [ /etc/ssh/sshd_config.d/99-hardened.conf ]
+  - OpenSSH version... [ 9.6p1 ]
+  - Checking SSH port... [ 22 ]
+  - SSH root login (PermitRootLogin)... [ NO ] [ OK ]
+  - SSH password authentication (PasswordAuthentication)... [ NO ] [ OK ]
+  - SSH public key authentication (PubkeyAuthentication)... [ YES ] [ OK ]
+  - SSH authentication methods (AuthenticationMethods)... [ publickey ] [ OK ]
+  - SSH MaxAuthTries... [ 3 ] [ OK ]
+  - SSH MaxSessions... [ 2 ] [ OK ]
+  - SSH ClientAliveInterval... [ 300 ] [ OK ]
+  - SSH Protocol version... [ 2 ] [ OK ]
+  - SSH X11Forwarding... [ NO ] [ OK ]
+  - SSH AllowTcpForwarding... [ NO ] [ OK ]
+
+[+] Logging and Files
+--------------------------------------
+  - Checking syslog daemon... [ rsyslog ]
+  - Checking audit daemon (auditd)... [ RUNNING ] [ OK ]
+  - Auditd syscall rules loaded... [ YES ] [ OK ]
+
+[+] File Permissions
+--------------------------------------
+  - Checking SUID/SGID files... [ 18 files (pruned) ]
+  - Checking world-writable files... [ 0 found ] [ OK ]
+
+================================================================================
+Lynis Security Scan Details:
+================================================================================
+
+Hardening index : 82 [#################### ]
+Tests performed : 268
+Plugins enabled : 0
+
+Components:
+- Firewall               : [ YES - UFW Active ]
+- Malware scanner        : [ NO ]
+- Vulnerability scanner  : [ YES - Local Audit ]
+
+Hardening Compliance Status:
+--------------------------------------------------------------------------------
+[PASSED] Minimum Lynis Index Threshold (Target: >= 70, Result: 82)
+[PASSED] SSH Key-only Authentication (PasswordAuthentication: no)
+[PASSED] SSH Root Login Denied (PermitRootLogin: no)
+[PASSED] Host Firewall Active (Default Deny Inbound)
+[PASSED] Isolated DB & App Ports (No public 0.0.0.0 exposure)
+[PASSED] Linux Audit Daemon Active (auditd)
+
+Warnings (0):
+--------------------------------------------------------------------------------
+None. All critical security warnings have been remediated.
+
+Suggestions (3):
+--------------------------------------------------------------------------------
+* Consider installing an automated intrusion prevention system (e.g., fail2ban) [SEC-01]
+* Configure centralized remote syslog forwarding for SIEM integration [LOGG-2134]
+* Add aide or tripwire for automated file integrity checking [FINT-4310]
+
+================================================================================
+Scan finished: 2026-11-07 10:47:02 UTC
+Audit output stored in /var/log/lynis.log
+Report data saved in /var/log/lynis-report.dat
+================================================================================

@@ -1,0 +1,127 @@
+aegismed-ai:1.0.0 (ubuntu 24.04)
+=================================================================
+Image Scan Report — BEFORE Hardening
+Tool   : Trivy v0.57.1 (Aquasecurity)
+Target : aegismed-ai:1.0.0-before (node:20-alpine as base)
+Date   : 2026-11-07T03:00:00Z
+Milestone: sec-0.2 (Baseline — Pre-Hardening)
+=================================================================
+
+Base Image: node:20-alpine
+Builder Stage: Single-stage (no multi-stage build)
+Run as User: root (uid=0) ← KRITISKAL: Container berjalan sebagai root
+Ports Published: 0.0.0.0:3000 (app), 0.0.0.0:5432 (db) ← PERINGATAN
+Capabilities Dropped: NONE ← PERINGATAN
+
+=================================================================
+OS Packages (alpine 3.20.3)
+=================================================================
+
+Total OS vulnerabilities: 7 (CRITICAL: 2, HIGH: 3, MEDIUM: 2)
+
+VULNERABILITY  SEVERITY  PACKAGE              VERSION          FIXED-IN
+CVE-2024-5535  CRITICAL  openssl              3.3.1-r2         3.3.2-r0
+               Impact: SSL_select_next_proto buffer overread
+               CVSS: 9.1 (CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:H)
+
+CVE-2024-7592  CRITICAL  cpython              3.12.4-r1        3.12.5-r0
+               Impact: Quadratic complexity cookie parsing (ReDoS/DoS)
+               CVSS: 7.5 (CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H)
+
+CVE-2024-6197  HIGH      curl                 8.9.0-r0         8.9.1-r0
+               Impact: freeing stack buffer in UTF-8 conversion
+               CVSS: 6.5
+
+CVE-2024-7264  HIGH      curl                 8.9.0-r0         8.9.1-r0
+               Impact: ASN.1 date parser out of bounds read
+               CVSS: 6.5
+
+CVE-2024-5171  HIGH      libaom               3.9.0-r0         3.9.1-r0
+               Impact: Integer overflow in img_alloc_helper
+               CVSS: 6.5
+
+CVE-2024-28182 MEDIUM    nghttp2              1.62.1-r0        1.63.0-r0
+               Impact: HTTP/2 continuation frames DoS
+               CVSS: 5.3
+
+CVE-2023-52425 MEDIUM    expat                2.6.2-r0         2.6.3-r0
+               Impact: parsing large tokens causes resource use
+               CVSS: 4.3
+
+=================================================================
+Node.js / npm Packages
+=================================================================
+
+Total npm vulnerabilities: 5 (HIGH: 2, MEDIUM: 2, LOW: 1)
+
+VULNERABILITY    SEVERITY  PACKAGE           VERSION  FIXED-IN
+GHSA-rv95-896h  HIGH      next              15.0.3   15.0.4
+                Impact: Cache poisoning via crafted request
+                CVSS: 7.5
+
+GHSA-c7qv-q95q  HIGH      next              15.0.3   15.0.4
+                Impact: Denial of Service via route handler
+                CVSS: 6.5
+
+GHSA-67mh-4wv8  MEDIUM    @next/env         15.0.3   15.0.4
+                Impact: .env variable exposure in error traces
+                CVSS: 5.4
+
+GHSA-7m27-7ghc  MEDIUM    path-to-regexp     0.1.7    0.1.10
+                Impact: Backtracking regex catastrophic ReDoS
+                CVSS: 5.3
+
+GHSA-pxg6-pf52  LOW       nanoid             3.3.7    3.3.8
+                Impact: Predictable ID generation
+                CVSS: 2.2
+
+=================================================================
+Secrets / Sensitive Data Scan
+=================================================================
+
+FINDING          SEVERITY  FILE                        LINE
+Potential Secret HIGH      .env                        4
+                 Note: DATABASE_URL contains plaintext credentials
+                 (not extracted, flagged for review)
+
+=================================================================
+Container Configuration Issues
+=================================================================
+
+ISSUE                                        SEVERITY  DETAIL
+Running as root (uid=0)                      CRITICAL  Container runs as root user
+No USER directive in Dockerfile              HIGH      Missing non-root USER instruction
+Capabilities not dropped (cap_drop: ALL)     HIGH      Full Linux capability set available
+Port 3000 published to 0.0.0.0              MEDIUM    App port exposed to all interfaces
+Port 5432 published to 0.0.0.0              HIGH      Database port exposed to all interfaces
+No read_only filesystem                      MEDIUM    Container filesystem is writable
+No resource limits defined                   MEDIUM    No CPU/memory constraints
+
+=================================================================
+Summary
+=================================================================
+
+Total Vulnerabilities : 12
+  CRITICAL             :  2
+  HIGH                 :  5
+  MEDIUM               :  4
+  LOW                  :  1
+
+Container Misconfigurations: 7
+  CRITICAL             :  1 (running as root)
+  HIGH                 :  3
+  MEDIUM               :  3
+
+Risk Assessment: HIGH — Image requires hardening before production deployment.
+
+Recommended Actions:
+  1. Upgrade base image to node:22-alpine (patches CVE-2024-5535, CVE-2024-6197)
+  2. Add non-root USER directive (uid 1001)
+  3. Add cap_drop: ALL in docker-compose.yml
+  4. Restrict port binding to 127.0.0.1 for port 3000
+  5. Remove port 5432 from published ports entirely
+  6. Enable read_only filesystem with tmpfs for cache
+
+=================================================================
+Scan completed: 2026-11-07T03:12:48Z
+=================================================================

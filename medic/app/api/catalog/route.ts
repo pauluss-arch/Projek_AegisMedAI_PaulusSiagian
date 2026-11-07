@@ -22,6 +22,20 @@ export async function GET() {
 // ── POST /api/catalog — Buat item katalog baru ──────────────────────────────
 export async function POST(request: NextRequest) {
   try {
+    const sesi = await (await import('../../../lib/sesi')).bacaSesi();
+    if (!sesi) {
+      return NextResponse.json(
+        { success: false, message: 'Akses ditolak (401 Unauthorized): Sesi autentikasi diperlukan.' },
+        { status: 401 },
+      );
+    }
+    if (sesi.peran !== 'admin') {
+      return NextResponse.json(
+        { success: false, message: `Akses ditolak (403 Forbidden): Peran '${sesi.peran}' tidak berwenang menambah item katalog.` },
+        { status: 403 },
+      );
+    }
+
     const body = await request.json();
     const parsed = skemaApiItem.safeParse(body);
     if (!parsed.success) {

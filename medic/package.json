@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
-    "test": "node --test src/crypto/patientCrypto.test.ts src/utils/symptomMatcher.test.ts src/lib/validations/patient.test.ts",
+    "test": "npx tsx --test src/crypto/patientCrypto.test.ts src/utils/symptomMatcher.test.ts src/lib/validations/patient.test.ts src/crypto/aeadCrypto.test.ts src/security/passwordHash.test.ts src/security/rbac.test.ts",
+    "test:security": "npx tsx --test src/security/passwordHash.test.ts src/security/rbac.test.ts",
     "start": "next start -p 3000",
     "db:start": "D:/PostgreSQL/17/bin/pg_ctl.exe -D D:/pg_medic start",
     "db:stop": "D:/PostgreSQL/17/bin/pg_ctl.exe -D D:/pg_medic stop",

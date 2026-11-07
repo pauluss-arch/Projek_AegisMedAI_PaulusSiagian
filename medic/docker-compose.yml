@@ -1,0 +1,164 @@
+# =============================================================================
+# AegisMed AI — Docker Compose (Hardened, sec-0.2)
+#
+# Pemetaan Risiko (Tugas 1):
+#   R01: Kebocoran PHI        — DB tidak dipublikasikan ke host/publik
+#   R03: Account Takeover     — Variabel sensitif via .env, bukan hardcode
+#   R04: DoS                  — Resource limits mem + cpu diterapkan
+#   T06: Elevation of Privilege — no-new-privileges, capabilities dibatasi
+#
+# Kontrol Container (sec-0.2):
+#   ✅ app port 3000 → terikat ke 127.0.0.1 saja (tidak ke 0.0.0.0)
+#   ✅ db port 5432 → TIDAK dipublikasikan ke host (internal network only)
+#   ✅ cap_drop: ALL pada service app
+#   ✅ cap_add: NET_BIND_SERVICE saja (minimum necessary)
+#   ✅ security_opt: no-new-privileges:true
+#   ✅ read_only: true pada filesystem root container app
+#   ✅ tmpfs: /tmp untuk proses yang membutuhkan write sementara
+#   ✅ User non-root (1001:1001)
+# =============================================================================
+
+services:
+
+  # ── Service: Aplikasi Next.js (AegisMed AI) ────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    image: aegismed-ai:1.0.0
+    container_name: aegismed-app
+    restart: unless-stopped
+
+    # ── Hardening: Jalankan sebagai non-root user 1001:1001 ──────────────────
+    user: "1001:1001"
+
+    # ── Port: Terikat HANYA ke loopback host (127.0.0.1) ─────────────────────
+    # R01, T06: Port 3000 tidak boleh diekspos ke 0.0.0.0 (semua interface)
+    # Akses publik hanya melalui reverse proxy (nginx/caddy) di depannya
+    ports:
+      - "127.0.0.1:3000:3000"
+
+    # ── Variabel Lingkungan (dari .env, bukan hardcode) ───────────────────────
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    # ── Filesystem: Read-only root, tmpfs untuk cache ─────────────────────────
+    # T06: Mencegah penulisan ke filesystem root container
+    read_only: true
+    tmpfs:
+      - /tmp:uid=1001,gid=1001,size=64m,mode=1700
+      - /app/.next/cache:uid=1001,gid=1001,size=128m
+
+    # ── Linux Capabilities: Drop ALL, tambah minimum saja ────────────────────
+    # T06: Mencegah container memperoleh hak istimewa OS tambahan
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+
+    # ── Security Options ──────────────────────────────────────────────────────
+    security_opt:
+      - no-new-privileges:true
+
+    # ── Resource Limits (DoS Protection — R04) ───────────────────────────────
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+
+    # ── Health Check ──────────────────────────────────────────────────────────
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # ── Jaringan: Hanya network internal ─────────────────────────────────────
+    networks:
+      - aegismed-internal
+
+    # ── Dependensi ────────────────────────────────────────────────────────────
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ── Service: Database PostgreSQL ───────────────────────────────────────────
+  db:
+    image: postgres:17-alpine
+    container_name: aegismed-db
+    restart: unless-stopped
+
+    # ── Hardening: Jalankan sebagai non-root user postgres ───────────────────
+    user: postgres
+
+    # ── Port DB: TIDAK dipublikasikan ke host ─────────────────────────────────
+    # R01, T06: Port 5432 hanya bisa diakses dalam network internal Docker
+    # Tidak ada "ports:" entry — akses hanya via aegismed-internal network
+    expose:
+      - "5432"
+
+    # ── Variabel Lingkungan DB ────────────────────────────────────────────────
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aegismed_prod}
+      POSTGRES_USER: ${POSTGRES_USER:-aegismed_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?DB password required}
+      PGDATA: /var/lib/postgresql/data/pgdata
+
+    # ── Volumes: Data persisten ───────────────────────────────────────────────
+    volumes:
+      - aegismed-pgdata:/var/lib/postgresql/data
+
+    # ── Linux Capabilities: Drop ALL ─────────────────────────────────────────
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+
+    # ── Security Options ──────────────────────────────────────────────────────
+    security_opt:
+      - no-new-privileges:true
+
+    # ── Resource Limits (R04 — DoS Protection) ───────────────────────────────
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
+    # ── Health Check ──────────────────────────────────────────────────────────
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aegismed_app} -d ${POSTGRES_DB:-aegismed_prod}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+    # ── Jaringan: Hanya network internal ─────────────────────────────────────
+    networks:
+      - aegismed-internal
+
+# ── Networks: Isolated bridge network ────────────────────────────────────────
+networks:
+  aegismed-internal:
+    driver: bridge
+    internal: false
+    driver_opts:
+      com.docker.network.bridge.name: aegismed_br0
+
+# ── Volumes: Named volumes ────────────────────────────────────────────────────
+volumes:
+  aegismed-pgdata:
+    driver: local

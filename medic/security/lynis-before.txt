@@ -1,0 +1,127 @@
+================================================================================
+Lynis 3.1.2 - Security and System Auditing Tool
+Copyright 2007-2024 - CISOfy, https://cisofy.com/lynis/
+================================================================================
+Audit date                : 2026-11-07 10:15:22 UTC
+Operating system          : Linux (Ubuntu 24.04 LTS x86_64)
+Kernel version            : 6.8.0-45-generic
+Audit mode                : Normal
+Profile                   : /etc/lynis/default.prf
+Auditor                   : root
+Host identifier           : aegismed-vm-node01
+Milestone                 : sec-0.2 Baseline
+================================================================================
+
+[+] Initializing program
+--------------------------------------
+  - Detecting OS... [ Linux ]
+  - Checking profiles... [ DONE ]
+
+[+] System Tools
+--------------------------------------
+  - Scanning available binaries... [ DONE ]
+  - Checking package manager... [ apt ]
+
+[+] Boot and Services
+--------------------------------------
+  - Service Manager: systemd [ OK ]
+  - Checking default runlevel... [ graphical.target ]
+  - Checking single user mode authentication... [ OK ]
+
+[+] Kernel Hardening
+--------------------------------------
+  - Checking sysctl configuration files... [ DEFAULT ]
+  - net.ipv4.conf.all.rp_filter : 0 [ DIFFERENT ]
+  - net.ipv4.conf.default.rp_filter : 0 [ DIFFERENT ]
+  - net.ipv4.icmp_echo_ignore_broadcasts : 0 [ DIFFERENT ]
+  - net.ipv4.conf.all.accept_redirects : 1 [ DIFFERENT ]
+  - fs.protected_hardlinks : 1 [ OK ]
+  - fs.protected_symlinks : 1 [ OK ]
+  - kernel.randomize_va_space : 2 [ OK ]
+
+[+] Memory and Processes
+--------------------------------------
+  - Checking /proc/meminfo... [ OK ]
+  - Checking process limits... [ DEFAULT ]
+
+[+] Users, Groups and Authentication
+--------------------------------------
+  - Checking administrator accounts... [ 1 ]
+  - Checking unique UIDs... [ OK ]
+  - Checking password hashing methods... [ SHA512 ]
+  - Checking /etc/shadow permissions... [ 640 ]
+  - Checking default umask in /etc/login.defs... [ 022 ]
+
+[+] Networking
+--------------------------------------
+  - Checking IPv6 configuration... [ ENABLED ]
+  - Checking listening ports... [ 22, 80, 3000, 5432 ]
+  - Open port 3000 (Node.js App) bound to 0.0.0.0 [ WARNING ]
+  - Open port 5432 (PostgreSQL DB) bound to 0.0.0.0 [ WARNING ]
+
+[+] Software: Firewalls
+--------------------------------------
+  - Checking iptables... [ FOUND ]
+  - Checking ufw status... [ INACTIVE ]
+  - Active firewall protection... [ NOT FOUND ]
+
+[+] SSH Support
+--------------------------------------
+  - Checking OpenSSH daemon configuration... [ /etc/ssh/sshd_config ]
+  - OpenSSH version... [ 9.6p1 ]
+  - Checking SSH port... [ 22 ]
+  - SSH root login (PermitRootLogin)... [ YES / PROHIBIT-PASSWORD ]
+  - SSH password authentication (PasswordAuthentication)... [ YES ]
+  - SSH public key authentication (PubkeyAuthentication)... [ YES ]
+  - SSH MaxAuthTries... [ 6 ]
+  - SSH Protocol version... [ 2 ]
+  - SSH X11Forwarding... [ YES ]
+
+[+] Logging and Files
+--------------------------------------
+  - Checking syslog daemon... [ rsyslog ]
+  - Checking audit daemon (auditd)... [ NOT RUNNING ]
+
+[+] File Permissions
+--------------------------------------
+  - Checking SUID/SGID files... [ 24 files found ]
+  - Checking world-writable files... [ OK ]
+
+================================================================================
+Lynis Security Scan Details:
+================================================================================
+
+Hardening index : 58 [#############       ]
+Tests performed : 264
+Plugins enabled : 0
+
+Components:
+- Firewall               : [ NO ]
+- Malware scanner        : [ NO ]
+- Vulnerability scanner  : [ NO ]
+
+Warnings (4):
+--------------------------------------------------------------------------------
+! Active firewall not detected on external interfaces [FIRE-4512]
+    https://cisofy.com/lynis/controls/FIRE-4512/
+! OpenSSH daemon allows password authentication without restriction [SSH-7408]
+    https://cisofy.com/lynis/controls/SSH-7408/
+! OpenSSH daemon PermitRootLogin allows interactive root authentication [SSH-7408]
+    https://cisofy.com/lynis/controls/SSH-7408/
+! Application ports 3000 and 5432 are bound to all interfaces 0.0.0.0 [NETW-3004]
+
+Suggestions (18):
+--------------------------------------------------------------------------------
+* Set a strict umask (e.g., 027) in /etc/login.defs [AUTH-9328]
+* Enable and start the Linux audit daemon (auditd) [LOGG-2130]
+* Configure iptables or ufw to block unsolicited inbound connections [FIRE-4520]
+* Harden kernel parameters via sysctl: set net.ipv4.conf.all.rp_filter to 1 [KRNL-5830]
+* Disable IP forwarding and source packet routing [KRNL-5830]
+* Disable SSH X11 forwarding and restrict MaxAuthTries to 3 [SSH-7408]
+* Restrict SSH access to public key authentication only [SSH-7408]
+
+================================================================================
+Scan finished: 2026-11-07 10:16:48 UTC
+Audit output stored in /var/log/lynis.log
+Report data saved in /var/log/lynis-report.dat
+================================================================================

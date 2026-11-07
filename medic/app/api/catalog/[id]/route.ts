@@ -31,6 +31,20 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
 export async function DELETE(_req: NextRequest, { params }: RouteContext) {
   const { id } = await params;
   try {
+    const sesi = await (await import('../../../../lib/sesi')).bacaSesi();
+    if (!sesi) {
+      return NextResponse.json(
+        { success: false, message: 'Akses ditolak (401 Unauthorized): Sesi autentikasi diperlukan.' },
+        { status: 401 },
+      );
+    }
+    if (sesi.peran !== 'admin') {
+      return NextResponse.json(
+        { success: false, message: `Akses ditolak (403 Forbidden): Peran '${sesi.peran}' tidak berwenang menghapus item katalog.` },
+        { status: 403 },
+      );
+    }
+
     const existing = await db.catalogItem.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json(

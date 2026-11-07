@@ -77,10 +77,6 @@ function toPatientRecord(patient: PatientWithDiagnoses): PersistedPatient {
   };
 }
 
-async function requireSession(): Promise<boolean> {
-  return Boolean(await bacaSesi());
-}
-
 function revalidatePatientPages(): void {
   revalidatePath('/');
   revalidatePath('/clinical-tools');
@@ -92,8 +88,12 @@ function generatedMedicalRecordNum(): string {
 }
 
 export async function getPatients(): Promise<PersistedPatient[]> {
-  if (!(await requireSession())) {
+  const sesi = await bacaSesi();
+  if (!sesi) {
     throw new Error('A valid session is required to read patient records.');
+  }
+  if (sesi.peran === 'pasien') {
+    throw new Error('Akses ditolak (403 Forbidden): Pasien tidak diizinkan mengakses daftar seluruh rekam medis.');
   }
 
   const patients = await db.patient.findMany({
@@ -104,7 +104,8 @@ export async function getPatients(): Promise<PersistedPatient[]> {
 }
 
 export async function getPatientById(input: unknown): Promise<PersistedPatient | null> {
-  if (!(await requireSession())) {
+  const sesi = await bacaSesi();
+  if (!sesi) {
     throw new Error('A valid session is required to read patient records.');
   }
   const parsed = deletePatientSchema.safeParse(input);
@@ -114,12 +115,27 @@ export async function getPatientById(input: unknown): Promise<PersistedPatient |
     where: { id: parsed.data },
     include: { diagnoses: { orderBy: { createdAt: 'desc' } } },
   });
-  return patient ? toPatientRecord(patient) : null;
+  if (!patient) return null;
+
+  // Proteksi IDOR (Insecure Direct Object Reference - R01/T06):
+  // Peran pasien HANYA boleh mengakses data rekam medis miliknya sendiri
+  if (sesi.peran === 'pasien') {
+    const isOwner = sesi.pasienId === patient.medicalRecordNum || sesi.pasienId === patient.id;
+    if (!isOwner) {
+      throw new Error('Akses ditolak (403 Forbidden - IDOR): Anda tidak memiliki izin untuk melihat rekam medis pasien lain.');
+    }
+  }
+
+  return toPatientRecord(patient);
 }
 
 export async function createPatientAction(input: unknown): Promise<PatientActionResult> {
-  if (!(await requireSession())) {
+  const sesi = await bacaSesi();
+  if (!sesi) {
     return { success: false, message: 'Your session has expired. Sign in again before saving patient records.' };
+  }
+  if (sesi.peran !== 'dokter' && sesi.peran !== 'admin') {
+    return { success: false, message: `Akses ditolak (403 Forbidden): Peran '${sesi.peran}' tidak berwenang mendaftarkan rekam medis pasien baru.` };
   }
 
   const suppliedRecordNum = typeof input === 'object' && input !== null
@@ -191,8 +207,12 @@ function zodFieldErrors(error: {
 }
 
 export async function recordDiagnosisAction(input: unknown): Promise<PatientActionResult> {
-  if (!(await requireSession())) {
+  const sesi = await bacaSesi();
+  if (!sesi) {
     return { success: false, message: 'Your session has expired. Sign in again before saving the assessment.' };
+  }
+  if (sesi.peran !== 'dokter') {
+    return { success: false, message: `Akses ditolak (403 Forbidden): Peran '${sesi.peran}' tidak berwenang melakukan diagnosis medis. Hanya dokter berlisensi yang berwenang.` };
   }
   const parsed = recordDiagnosisSchema.safeParse(input);
   if (!parsed.success) {
@@ -236,8 +256,12 @@ export async function recordDiagnosisAction(input: unknown): Promise<PatientActi
 }
 
 export async function updatePatientAction(input: unknown): Promise<PatientActionResult> {
-  if (!(await requireSession())) {
+  const sesi = await bacaSesi();
+  if (!sesi) {
     return { success: false, message: 'Your session has expired. Sign in again before updating patient records.' };
+  }
+  if (sesi.peran === 'pasien') {
+    return { success: false, message: 'Akses ditolak (403 Forbidden): Pasien tidak diizinkan mengubah status klinis atau keselamatan rekam medis.' };
   }
   const parsed = patientUpdateSchema.safeParse(input);
   if (!parsed.success) {
@@ -266,8 +290,12 @@ export async function updatePatientAction(input: unknown): Promise<PatientAction
 }
 
 export async function deletePatientAction(input: unknown): Promise<MutationResult> {
-  if (!(await requireSession())) {
+  const sesi = await bacaSesi();
+  if (!sesi) {
     return { success: false, message: 'Your session has expired. Sign in again before deleting patient records.' };
+  }
+  if (sesi.peran !== 'admin') {
+    return { success: false, message: `Akses ditolak (403 Forbidden): Peran '${sesi.peran}' tidak berwenang menghapus rekam medis. Hanya admin sistem yang berwenang.` };
   }
   const parsed = deletePatientSchema.safeParse(input);
   if (!parsed.success) {
@@ -287,8 +315,12 @@ export async function deletePatientAction(input: unknown): Promise<MutationResul
 }
 
 export async function signDiagnosisAction(input: unknown): Promise<SignDiagnosisResult> {
-  if (!(await requireSession())) {
+  const sesi = await bacaSesi();
+  if (!sesi) {
     return { success: false, message: 'Your session has expired. Sign in again before recording the demo signature.' };
+  }
+  if (sesi.peran !== 'dokter') {
+    return { success: false, message: `Akses ditolak (403 Forbidden): Peran '${sesi.peran}' tidak berwenang menandatangani resep medis. Hanya dokter yang berwenang.` };
   }
   const parsed = signDiagnosisSchema.safeParse(input);
   if (!parsed.success) {

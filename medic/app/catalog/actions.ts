@@ -19,8 +19,12 @@ function nilaiForm(formData: FormData): Record<string, string> {
 }
 
 export async function simpanItem(_statusSebelumnya: StatusForm, formData: FormData): Promise<StatusForm> {
-  if (!(await bacaSesi())) {
+  const sesi = await bacaSesi();
+  if (!sesi) {
     return { pesan: 'Sesi tidak ditemukan. Silakan masuk kembali.' };
+  }
+  if (sesi.peran !== 'admin') {
+    return { pesan: `Akses ditolak (403 Forbidden): Peran '${sesi.peran}' tidak berwenang memodifikasi katalog klinis.` };
   }
 
   const nilai = nilaiForm(formData);
@@ -53,8 +57,12 @@ export async function simpanItem(_statusSebelumnya: StatusForm, formData: FormDa
 }
 
 export async function hapusItemAction(formData: FormData): Promise<void> {
-  if (!(await bacaSesi())) {
+  const sesi = await bacaSesi();
+  if (!sesi) {
     redirect('/masuk');
+  }
+  if (sesi.peran !== 'admin') {
+    throw new Error(`Akses ditolak (403 Forbidden): Peran '${sesi.peran}' tidak berwenang menghapus item katalog.`);
   }
 
   const id = formData.get('id');

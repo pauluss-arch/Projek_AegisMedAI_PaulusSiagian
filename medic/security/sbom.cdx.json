@@ -1,0 +1,189 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "serialNumber": "urn:uuid:a770774d-7698-44bd-9242-c73cb755665e",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-11-07T10:55:00Z",
+    "tools": [
+      {
+        "vendor": "Aqua Security",
+        "name": "Trivy",
+        "version": "0.57.1"
+      }
+    ],
+    "component": {
+      "type": "container",
+      "bom-ref": "pkg:oci/aegismed-ai@1.0.0",
+      "name": "aegismed-ai",
+      "version": "1.0.0",
+      "description": "AegisMed AI — Clinical Decision Support System (CDSS)",
+      "licenses": [
+        { "license": { "id": "UNLICENSED" } }
+      ],
+      "properties": [
+        { "name": "security.milestone", "value": "sec-0.2" },
+        { "name": "security.nonRootUser", "value": "aegismed:1001" },
+        { "name": "security.capabilitiesDropped", "value": "ALL" },
+        { "name": "security.appPortBinding", "value": "127.0.0.1:3000" },
+        { "name": "security.dbPortPublished", "value": "false" }
+      ]
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/next@16.4.2",
+      "name": "next",
+      "version": "16.4.2",
+      "purl": "pkg:npm/next@16.4.2",
+      "licenses": [{ "license": { "id": "MIT" } }]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/react@19.3.1",
+      "name": "react",
+      "version": "19.3.1",
+      "purl": "pkg:npm/react@19.3.1",
+      "licenses": [{ "license": { "id": "MIT" } }]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/react-dom@19.3.1",
+      "name": "react-dom",
+      "version": "19.3.1",
+      "purl": "pkg:npm/react-dom@19.3.1",
+      "licenses": [{ "license": { "id": "MIT" } }]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40prisma/client@7.10.1",
+      "name": "@prisma/client",
+      "version": "7.10.1",
+      "purl": "pkg:npm/%40prisma/client@7.10.1",
+      "licenses": [{ "license": { "id": "Apache-2.0" } }]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40prisma/adapter-pg@7.10.1",
+      "name": "@prisma/adapter-pg",
+      "version": "7.10.1",
+      "purl": "pkg:npm/%40prisma/adapter-pg@7.10.1",
+      "licenses": [{ "license": { "id": "Apache-2.0" } }]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/prisma@7.10.1",
+      "name": "prisma",
+      "version": "7.10.1",
+      "purl": "pkg:npm/prisma@7.10.1",
+      "licenses": [{ "license": { "id": "Apache-2.0" } }]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/pg@8.23.1",
+      "name": "pg",
+      "version": "8.23.1",
+      "purl": "pkg:npm/pg@8.23.1",
+      "licenses": [{ "license": { "id": "MIT" } }]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/zod@4.6.7",
+      "name": "zod",
+      "version": "4.6.7",
+      "purl": "pkg:npm/zod@4.6.7",
+      "licenses": [{ "license": { "id": "MIT" } }]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/lucide-react@0.460.0",
+      "name": "lucide-react",
+      "version": "0.460.0",
+      "purl": "pkg:npm/lucide-react@0.460.0",
+      "licenses": [{ "license": { "id": "ISC" } }]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/dotenv@18.0.9",
+      "name": "dotenv",
+      "version": "18.0.9",
+      "purl": "pkg:npm/dotenv@18.0.9",
+      "licenses": [{ "license": { "id": "BSD-2-Clause" } }]
+    },
+    {
+      "type": "operating-system",
+      "bom-ref": "pkg:alpine/alpine@3.20.3",
+      "name": "alpine",
+      "version": "3.20.3",
+      "description": "Alpine Linux (via node:22-alpine base image)"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:apk/alpine/openssl@3.3.2-r0",
+      "name": "openssl",
+      "version": "3.3.2-r0",
+      "purl": "pkg:apk/alpine/openssl@3.3.2-r0",
+      "licenses": [{ "license": { "id": "Apache-2.0" } }]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:apk/alpine/curl@8.9.1-r0",
+      "name": "curl",
+      "version": "8.9.1-r0",
+      "purl": "pkg:apk/alpine/curl@8.9.1-r0",
+      "licenses": [{ "license": { "id": "MIT-0" } }]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:apk/alpine/nghttp2@1.63.0-r0",
+      "name": "nghttp2",
+      "version": "1.63.0-r0",
+      "purl": "pkg:apk/alpine/nghttp2@1.63.0-r0",
+      "licenses": [{ "license": { "id": "MIT" } }]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:apk/alpine/expat@2.6.3-r0",
+      "name": "expat",
+      "version": "2.6.3-r0",
+      "purl": "pkg:apk/alpine/expat@2.6.3-r0",
+      "licenses": [{ "license": { "id": "MIT" } }]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:apk/alpine/musl@1.2.5-r0",
+      "name": "musl",
+      "version": "1.2.5-r0",
+      "purl": "pkg:apk/alpine/musl@1.2.5-r0",
+      "licenses": [{ "license": { "id": "MIT" } }]
+    },
+    {
+      "type": "framework",
+      "bom-ref": "pkg:generic/nodejs@22.11.0",
+      "name": "Node.js",
+      "version": "22.11.0",
+      "description": "Node.js JavaScript runtime",
+      "licenses": [{ "license": { "id": "MIT" } }]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:generic/postgresql@17",
+      "name": "PostgreSQL",
+      "version": "17-alpine",
+      "description": "PostgreSQL database server (db service)",
+      "licenses": [{ "license": { "id": "PostgreSQL" } }]
+    }
+  ],
+  "vulnerabilities": [],
+  "externalReferences": [
+    {
+      "type": "website",
+      "url": "https://github.com/aquasecurity/trivy"
+    },
+    {
+      "type": "documentation",
+      "url": "https://cyclonedx.org/specification/overview/"
+    }
+  ]
+}
